@@ -16,6 +16,7 @@ export default defineConfig({
       '/solrwayback': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        autoRewrite: true,
       }
     },
   },

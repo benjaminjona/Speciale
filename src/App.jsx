@@ -68,8 +68,10 @@ function App() {
 
   const handleResultClick = (doc) => {
     // Construct the playback URL
-    // Using viewForward service as seen in Vue app
-    const playbackUrl = `/solrwayback/services/viewForward?source_file_path=${doc.source_file_path}&offset=${doc.source_file_offset}`;
+    // Using direct /web/timestamp/url pattern to avoid absolute redirects from viewForward
+    // which cause CORS issues when running on a different port (localhost:5173 vs 8080).
+    // doc.wayback_date is expected to be in YYYYMMDDHHMMSS format.
+    const playbackUrl = `/solrwayback/services/web/${doc.wayback_date}/${doc.url}`;
     getPlaybackFunction(playbackUrl);
   };
 
