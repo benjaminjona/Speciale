@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PlaybackViewer from './PlaybackViewer';
 
+interface SolrDoc {
+  wayback_date: number | string;
+  url: string;
+  [key: string]: any;
+}
+
+interface PlaybackData {
+  html: string;
+  baseUrl: string;
+}
+
 function App() {
-  const [playbackData, setPlaybackData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [playbackData, setPlaybackData] = useState<PlaybackData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Search states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<SolrDoc[]>([]);
+  const [searching, setSearching] = useState<boolean>(false);
 
-  const getPlaybackFunction = async (url) => {
+  const getPlaybackFunction = async (url: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -25,14 +36,14 @@ function App() {
       const finalUrl = response.url;
       
       setPlaybackData({ html: htmlText, baseUrl: finalUrl });
-    } catch (err) {
+    } catch (err: any) {
       setError("Playback Error: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSearch = async (e) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
 
@@ -58,7 +69,7 @@ function App() {
       } else {
         setSearchResults([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError("Search Error: " + err.message);
     } finally {
@@ -66,7 +77,7 @@ function App() {
     }
   };
 
-  const handleResultClick = (doc) => {
+  const handleResultClick = (doc: SolrDoc) => {
     // Construct the playback URL
     // Using direct /web/timestamp/url pattern to avoid absolute redirects from viewForward
     // which cause CORS issues when running on a different port (localhost:5173 vs 8080).

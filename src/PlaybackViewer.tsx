@@ -1,12 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
+interface PlaybackViewerProps {
+  htmlContent: string | null;
+  baseUrl: string | null;
+}
 
 /**
  * PlaybackViewer Component
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer = ({ htmlContent, baseUrl }) => {
-  const [blobUrl, setBlobUrl] = useState(null);
+const PlaybackViewer: React.FC<PlaybackViewerProps> = ({ htmlContent, baseUrl }) => {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!htmlContent) return;
