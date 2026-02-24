@@ -101,8 +101,8 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
             position: "absolute",
             backgroundColor: "red",
             color: "white",
-            fontSize: "12px",
-            padding: "2px 5px",
+            fontSize: "10px",
+            padding: "2px 4px",
             fontWeight: "bold",
             zIndex: "2147483647",
             lineHeight: "normal",
@@ -114,7 +114,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
         // Position label at top-right of the image
         function positionLabel() {
           var rect = theImage.getBoundingClientRect();
-          label.style.top = (window.scrollY + rect.top) + "px";
+          label.style.top = (window.scrollY + rect.top -13) + "px";
           label.style.left = (window.scrollX + rect.right - label.offsetWidth) + "px";
         }
         // Wait for image to load (may have 0 rect before load)

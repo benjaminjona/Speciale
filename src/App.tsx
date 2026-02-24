@@ -105,7 +105,7 @@ function App() {
           margin: "0 auto",
         }}
       >
-        <h1>SolrWayback React Playback w/ Search</h1>
+        <h1>SolrWayback Playback w/ Search</h1>
 
         {/* Search Section */}
         <div
