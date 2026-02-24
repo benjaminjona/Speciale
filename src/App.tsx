@@ -23,7 +23,6 @@ function App() {
   // Search states
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<SolrDoc[]>([]);
-  const [searching, setSearching] = useState<boolean>(false);
 
   const getPlaybackFunction = async (url: string) => {
     setLoading(true);
@@ -47,7 +46,7 @@ function App() {
     }
   };
 
-    const getHarvestedPageResources = async (source_file_path, offset) => {
+    const getHarvestedPageResources = async (source_file_path:string, offset:number) => {
     try {
       const url = `/solrwayback/services/timestampsforpage/?source_file_path=${encodeURIComponent(source_file_path)}&offset=${offset}`;
       const response = await fetch(url);
@@ -64,7 +63,6 @@ function App() {
   const handleSearch = async (query: string) => {
     if (!query) return;
 
-    setSearching(true);
     setError(null);
     setSearchResults([]);
 
@@ -85,8 +83,6 @@ function App() {
       }
     } catch (err: any) {
       setError("Search Error: " + err.message);
-    } finally {
-      setSearching(false);
     }
   };
 
@@ -199,6 +195,7 @@ function App() {
                 <PlaybackViewer
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
+                  pageResources={pageResources}
                 />
               </div>
             ) : (
@@ -208,14 +205,14 @@ function App() {
                 </div>
               )
             )}
-            {pageResources && (
-            <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>
-              <h3>Page Resources ({pageResources.length || 0})</h3>
-              <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>
-                {JSON.stringify(pageResources, null, 2)}
-              </pre>
-            </div>
-          )}
+          {/*  {pageResources && (*/}
+          {/*  <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>*/}
+          {/*    <h3>Page Resources ({pageResources.length || 0})</h3>*/}
+          {/*    <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>*/}
+          {/*      {JSON.stringify(pageResources, null, 2)}*/}
+          {/*    </pre>*/}
+          {/*  </div>*/}
+          {/*)}*/}
           </div>
         </div>
       </div>

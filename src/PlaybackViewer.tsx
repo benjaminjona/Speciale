@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 interface PlaybackViewerProps {
   htmlContent: string | null;
   baseUrl: string | null;
+  pageResources:any
 }
 
 /**
@@ -10,8 +11,9 @@ interface PlaybackViewerProps {
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer: React.FC<PlaybackViewerProps> = ({ htmlContent, baseUrl }) => {
+const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const pageResourcesJson = JSON.stringify(pageResources);
 
   useEffect(() => {
     if (!htmlContent) return;
@@ -33,6 +35,8 @@ const PlaybackViewer: React.FC<PlaybackViewerProps> = ({ htmlContent, baseUrl })
     // This script runs INSIDE the playback page context
     const customScript = `
       <script>
+        const pageResources = ${pageResourcesJson};
+        console.log(pageResources, )
         console.log("-----------------------------------------");
         console.log("SolrWayback Custom Script Injected Successfully!");
         console.log("This script is running inside the playback context.");
@@ -44,14 +48,61 @@ const PlaybackViewer: React.FC<PlaybackViewerProps> = ({ htmlContent, baseUrl })
            banner.style.top = "0";
            banner.style.left = "0";
            banner.style.width = "100%";
-           banner.style.backgroundColor = "#ffcc00";
-           banner.style.color = "black";
-           banner.style.textAlign = "center";
-           banner.style.zIndex = "999999";
-           banner.style.padding = "5px";
-           banner.innerText = "Injected via React App";
            document.body.appendChild(banner);
         });
+        document.addEventListener("DOMContentLoaded", function() {
+            pageResources.resources.forEach((resourceInfo) => {
+    const imgSrc = resourceInfo.downloadUrl;
+    const timeDiff = resourceInfo.timeDifference; 
+    const allImages = document.querySelectorAll('img');
+    const theImage = Array.from(allImages).find(img => img.src === imgSrc);
+    
+    if (theImage) {
+        // 1. Create the Wrapper Div
+        const wrapper = document.createElement("div");
+        
+        // Match the wrapper to the image size and make it the anchor
+        Object.assign(wrapper.style, {
+            position: "relative",
+            display: "inline-block", 
+            verticalAlign: "middle", // Maintains alignment of the original image
+            lineHeight: "0",         // Removes the default whitespace under images
+            border: "3px solid red",
+            borderRadius: "4px"
+        });
+
+        // 2. Create the Label (Span)
+        const label = document.createElement("span");
+        label.innerText = timeDiff;
+        
+        Object.assign(label.style, {
+            position: "absolute",
+            top: "-20px",
+            right: "0",
+            backgroundColor: "red",
+            color: "white",
+            fontSize: "12px",
+            padding: "2px 5px",
+            fontWeight: "bold",
+            zIndex: "100",
+            lineHeight: "normal", // Ensure text inside isn't affected by wrapper's 0 line-height
+            pointerEvents: "none" 
+        });
+
+        // 3. The "Wrap" Logic
+        // Insert wrapper before the image, then move the image into it
+        theImage.parentNode.insertBefore(wrapper, theImage);
+        wrapper.appendChild(theImage);
+        
+        // 4. Add the label into the new relative container
+        wrapper.appendChild(label);
+        
+        // Clean up image margins that might push the wrapper boundaries
+        theImage.style.margin = "0";
+        theImage.style.display = "block"; // Prevents internal alignment gaps
+    }
+});
+    });
         console.log("-----------------------------------------");
       </script>
     `;
