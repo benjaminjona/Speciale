@@ -1,4 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import {
+  Box,
+  Flex,
+  Text,
+  Slider,
+  NumberInput,
+} from '@chakra-ui/react';
 
 interface PlaybackViewerProps {
   htmlContent: string | null;
@@ -156,50 +163,60 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
       />
 
       {/* Time Difference Threshold Control */}
-      <div style={{
-        marginTop: '12px',
-        padding: '14px 18px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '6px',
-        border: '1px solid #ddd',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '14px',
-        flexWrap: 'wrap',
-      }}>
-        <label style={{ fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap' }}>
-          Max allowed time difference:
-        </label>
-        <input
-          type="range"
-          min={1}
-          max={3650}
-          value={currentDays}
-          onChange={(e) => {
-            const days = parseInt(e.target.value, 10);
-            setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-          }}
-          style={{ flex: 1, minWidth: '150px' }}
-        />
-        <input
-          type="number"
-          min={1}
-          max={3650}
-          value={currentDays}
-          onChange={(e) => {
-            const days = parseInt(e.target.value, 10);
-            if (!isNaN(days) && days >= 1) {
-              setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-            }
-          }}
-          style={{ width: '70px', padding: '4px 6px', fontSize: '14px', textAlign: 'center' }}
-        />
-        <span style={{ fontSize: '14px', color: '#555' }}>days</span>
-        <span style={{ fontSize: '12px', color: '#888' }}>
-          (Resources beyond this threshold are highlighted in <span style={{ color: 'red', fontWeight: 'bold' }}>red</span>,
-          within in <span style={{ color: 'green', fontWeight: 'bold' }}>green</span>)
-        </span>
-      </div>
+      <Box mt={3} p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
+        <Flex align="center" gap={4} wrap="wrap">
+          <Text fontWeight="bold" fontSize="sm" whiteSpace="nowrap">
+            Max allowed time difference:
+          </Text>
+
+          <Box flex="1" minW="150px">
+            <Slider.Root
+              min={1}
+              max={3650}
+              step={1}
+              value={[currentDays]}
+              onValueChange={(details) => {
+                const days = details.value[0];
+                setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+              }}
+            >
+              <Slider.Control>
+                <Slider.Track>
+                  <Slider.Range />
+                </Slider.Track>
+                <Slider.Thumb index={0} />
+              </Slider.Control>
+            </Slider.Root>
+          </Box>
+
+          <NumberInput.Root
+            min={1}
+            max={3650}
+            step={1}
+            value={String(currentDays)}
+            onValueChange={(details) => {
+              const days = parseInt(details.value, 10);
+              if (!isNaN(days) && days >= 1) {
+                setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+              }
+            }}
+            w="90px"
+          >
+            <NumberInput.Control>
+              <NumberInput.IncrementTrigger />
+              <NumberInput.DecrementTrigger />
+            </NumberInput.Control>
+            <NumberInput.Input textAlign="center" />
+          </NumberInput.Root>
+
+          <Text fontSize="sm" color="gray.600">days</Text>
+
+          <Text fontSize="xs" color="gray.500">
+            (Resources beyond this threshold are highlighted in{' '}
+            <Text as="span" color="red.500" fontWeight="bold">red</Text>)
+          </Text>
+        </Flex>
+      </Box>
     </div>
   );
 };
