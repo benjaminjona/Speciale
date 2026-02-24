@@ -13,6 +13,7 @@ interface PlaybackViewerProps {
  */
 const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
   const pageResourcesJson = JSON.stringify(pageResources);
 
   useEffect(() => {
@@ -36,71 +37,83 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     const customScript = `
       <script>
         const pageResources = ${pageResourcesJson};
-        console.log(pageResources, )
+        const MAX_TIME_DIFF_MS = ${maxTimeDiffMs};
+        console.log(pageResources);
+        console.log("Max allowed time diff (ms):", MAX_TIME_DIFF_MS);
         console.log("-----------------------------------------");
         console.log("SolrWayback Custom Script Injected Successfully!");
         console.log("This script is running inside the playback context.");
         
-        // Example: Add a visible overlay
-        document.addEventListener("DOMContentLoaded", function() {
-           const banner = document.createElement("div");
-           banner.style.position = "fixed";
-           banner.style.top = "0";
-           banner.style.left = "0";
-           banner.style.width = "100%";
-           document.body.appendChild(banner);
-        });
+        // Parse a timeDifference value (number in ms, or string like "-3 days, 2 hours") into absolute ms
+        function parseTimeDiffToMs(val) {
+          if (typeof val === 'number') return Math.abs(val);
+          if (typeof val !== 'string') return NaN;
+          // Try parsing as a plain number (could be ms as string like "-86400000")
+          var asNum = Number(val);
+          if (!isNaN(asNum) && val.trim() !== '') return Math.abs(asNum);
+          // Parse human-readable strings like "3 days, 2 hours, 15 minutes" or "-5 days"
+          var totalMs = 0;
+          var units = { day: 86400000, hour: 3600000, minute: 60000, second: 1000, millisecond: 1 };
+          var regex = /(\\d+)\\s*(day|hour|minute|second|millisecond)s?/gi;
+          var match;
+          var found = false;
+          while ((match = regex.exec(val)) !== null) {
+            found = true;
+            var amount = parseInt(match[1], 10);
+            var unit = match[2].toLowerCase();
+            totalMs += amount * (units[unit] || 0);
+          }
+          if (found) return totalMs; // already absolute since we only capture digits
+          return NaN;
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             if (!pageResources || !pageResources.resources) return;
             pageResources.resources.forEach((resourceInfo) => {
     const imgSrc = resourceInfo.downloadUrl;
-    const timeDiff = resourceInfo.timeDifference; 
+    const timeDiff = resourceInfo.timeDifference;
+    const timeDiffMs = parseTimeDiffToMs(timeDiff);
+    console.log("Resource:", imgSrc, "| timeDifference:", timeDiff, "| parsed ms:", timeDiffMs, "| threshold:", MAX_TIME_DIFF_MS);
+    const isOverThreshold = isNaN(timeDiffMs) || timeDiffMs > MAX_TIME_DIFF_MS;
+    // Only highlight resources that exceed the threshold
+    if (!isOverThreshold) return;
+
     const allImages = document.querySelectorAll('img');
     const theImage = Array.from(allImages).find(img => img.src === imgSrc);
     
     if (theImage) {
-        // 1. Create the Wrapper Div
-        const wrapper = document.createElement("div");
-        
-        // Match the wrapper to the image size and make it the anchor
-        Object.assign(wrapper.style, {
-            position: "relative",
-            display: "inline-block", 
-            verticalAlign: "middle", // Maintains alignment of the original image
-            lineHeight: "0",         // Removes the default whitespace under images
-            border: "3px solid red",
-            borderRadius: "4px"
-        });
+        // Use outline (doesn't affect layout) instead of border/wrapper
+        theImage.style.outline = "3px solid red";
+        theImage.style.outlineOffset = "-3px";
 
-        // 2. Create the Label (Span)
+        // Create a floating label positioned over the image, appended to body
         const label = document.createElement("span");
         label.innerText = timeDiff;
-        
+        label.className = "__swb-overlay-label";
         Object.assign(label.style, {
             position: "absolute",
-            top: "-20px",
-            right: "0",
             backgroundColor: "red",
             color: "white",
             fontSize: "12px",
             padding: "2px 5px",
             fontWeight: "bold",
-            zIndex: "100",
-            lineHeight: "normal", // Ensure text inside isn't affected by wrapper's 0 line-height
-            pointerEvents: "none" 
+            zIndex: "2147483647",
+            lineHeight: "normal",
+            pointerEvents: "none",
+            whiteSpace: "nowrap"
         });
+        document.body.appendChild(label);
 
-        // 3. The "Wrap" Logic
-        // Insert wrapper before the image, then move the image into it
-        theImage.parentNode.insertBefore(wrapper, theImage);
-        wrapper.appendChild(theImage);
-        
-        // 4. Add the label into the new relative container
-        wrapper.appendChild(label);
-        
-        // Clean up image margins that might push the wrapper boundaries
-        theImage.style.margin = "0";
-        theImage.style.display = "block"; // Prevents internal alignment gaps
+        // Position label at top-right of the image
+        function positionLabel() {
+          var rect = theImage.getBoundingClientRect();
+          label.style.top = (window.scrollY + rect.top) + "px";
+          label.style.left = (window.scrollX + rect.right - label.offsetWidth) + "px";
+        }
+        // Wait for image to load (may have 0 rect before load)
+        if (theImage.complete) { positionLabel(); } else { theImage.addEventListener("load", positionLabel); }
+        window.addEventListener("resize", positionLabel);
+        window.addEventListener("scroll", positionLabel);
     }
 });
     });
@@ -126,18 +139,67 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     return () => {
       URL.revokeObjectURL(newBlobUrl);
     };
-  }, [htmlContent, baseUrl, pageResourcesJson]);
+  }, [htmlContent, baseUrl, pageResourcesJson, maxTimeDiffMs]);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 
+  // Convert ms to days for the UI
+  const currentDays = Math.round(maxTimeDiffMs / (24 * 60 * 60 * 1000));
+
   return (
-    <div className="playback-wrapper" style={{ width: '100%', height: '800px' }}>
+    <div className="playback-wrapper" style={{ width: '100%' }}>
       <iframe 
         src={blobUrl} 
-        style={{ width: '100%', height: '100%', border: 'none' }}
+        style={{ width: '100%', height: '800px', border: 'none' }}
         title="Archived Content"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups" // Adjust sandbox flags as needed
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
+
+      {/* Time Difference Threshold Control */}
+      <div style={{
+        marginTop: '12px',
+        padding: '14px 18px',
+        backgroundColor: '#f5f5f5',
+        borderRadius: '6px',
+        border: '1px solid #ddd',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        flexWrap: 'wrap',
+      }}>
+        <label style={{ fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap' }}>
+          Max allowed time difference:
+        </label>
+        <input
+          type="range"
+          min={1}
+          max={3650}
+          value={currentDays}
+          onChange={(e) => {
+            const days = parseInt(e.target.value, 10);
+            setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+          }}
+          style={{ flex: 1, minWidth: '150px' }}
+        />
+        <input
+          type="number"
+          min={1}
+          max={3650}
+          value={currentDays}
+          onChange={(e) => {
+            const days = parseInt(e.target.value, 10);
+            if (!isNaN(days) && days >= 1) {
+              setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+            }
+          }}
+          style={{ width: '70px', padding: '4px 6px', fontSize: '14px', textAlign: 'center' }}
+        />
+        <span style={{ fontSize: '14px', color: '#555' }}>days</span>
+        <span style={{ fontSize: '12px', color: '#888' }}>
+          (Resources beyond this threshold are highlighted in <span style={{ color: 'red', fontWeight: 'bold' }}>red</span>,
+          within in <span style={{ color: 'green', fontWeight: 'bold' }}>green</span>)
+        </span>
+      </div>
     </div>
   );
 };
