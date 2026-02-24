@@ -51,6 +51,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
            document.body.appendChild(banner);
         });
         document.addEventListener("DOMContentLoaded", function() {
+            if (!pageResources || !pageResources.resources) return;
             pageResources.resources.forEach((resourceInfo) => {
     const imgSrc = resourceInfo.downloadUrl;
     const timeDiff = resourceInfo.timeDifference; 
@@ -125,7 +126,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     return () => {
       URL.revokeObjectURL(newBlobUrl);
     };
-  }, [htmlContent, baseUrl]);
+  }, [htmlContent, baseUrl, pageResourcesJson]);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 
