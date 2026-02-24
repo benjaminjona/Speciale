@@ -171,7 +171,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
 
           <Box flex="1" minW="150px">
             <Slider.Root
-              min={1}
+              min={0}
               max={3650}
               step={1}
               value={[currentDays]}
@@ -190,13 +190,13 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
           </Box>
 
           <NumberInput.Root
-            min={1}
+            min={0}
             max={3650}
             step={1}
             value={String(currentDays)}
             onValueChange={(details) => {
               const days = parseInt(details.value, 10);
-              if (!isNaN(days) && days >= 1) {
+              if (!isNaN(days) && days >= 0) {
                 setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
               }
             }}
