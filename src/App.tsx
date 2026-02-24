@@ -18,6 +18,7 @@ function App() {
   const [playbackData, setPlaybackData] = useState<PlaybackData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [pageResources, setPageResources] = useState(null);
 
   // Search states
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -30,6 +31,7 @@ function App() {
     try {
       // Use relative URL to leverage Vite proxy, preventing CORS issues if server doesn't allow it
       const response = await fetch(url);
+      console.log("Fetch Response:", response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -42,6 +44,20 @@ function App() {
       setError("Playback Error: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+    const getHarvestedPageResources = async (source_file_path, offset) => {
+    try {
+      const url = `/solrwayback/services/timestampsforpage/?source_file_path=${encodeURIComponent(source_file_path)}&offset=${offset}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setPageResources(data);
+    } catch (err) {
+      console.error("Error fetching timestamps:", err);
     }
   };
 
@@ -75,12 +91,12 @@ function App() {
   };
 
   const handleResultClick = (doc: SolrDoc) => {
-    // Construct the playback URL
-    // Using direct /web/timestamp/url pattern to avoid absolute redirects from viewForward
-    // which cause CORS issues when running on a different port (localhost:5173 vs 8080).
-    // doc.wayback_date is expected to be in YYYYMMDDHHMMSS format.
     const playbackUrl = `/solrwayback/services/web/${doc.wayback_date}/${doc.url}`;
     getPlaybackFunction(playbackUrl);
+    // Fetch page resources (timestamps/versions)
+    if (doc.source_file_path && doc.source_file_offset) {
+      getHarvestedPageResources(doc.source_file_path, doc.source_file_offset);
+    }
   };
 
   return (
@@ -192,6 +208,14 @@ function App() {
                 </div>
               )
             )}
+            {pageResources && (
+            <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>
+              <h3>Page Resources ({pageResources.length || 0})</h3>
+              <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>
+                {JSON.stringify(pageResources, null, 2)}
+              </pre>
+            </div>
+          )}
           </div>
         </div>
       </div>
