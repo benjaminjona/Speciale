@@ -19,6 +19,7 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [pageResources, setPageResources] = useState(null);
+  const [baseCrawlTime, setBaseCrawlTime] = useState<number | null>(null);
 
   // Search states
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -30,7 +31,6 @@ function App() {
     try {
       // Use relative URL to leverage Vite proxy, preventing CORS issues if server doesn't allow it
       const response = await fetch(url);
-      console.log("Fetch Response:", response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -46,7 +46,7 @@ function App() {
     }
   };
 
-    const getHarvestedPageResources = async (source_file_path:string, offset:number) => {
+  const getHarvestedPageResources = async (source_file_path: string, offset: number) => {
     try {
       const url = `/solrwayback/services/timestampsforpage/?source_file_path=${encodeURIComponent(source_file_path)}&offset=${offset}`;
       const response = await fetch(url);
@@ -55,6 +55,7 @@ function App() {
       }
       const data = await response.json();
       setPageResources(data);
+      setBaseCrawlTime(data?.pageCrawlDate || null);
     } catch (err) {
       console.error("Error fetching timestamps:", err);
     }
@@ -87,6 +88,7 @@ function App() {
   };
 
   const handleResultClick = (doc: SolrDoc) => {
+    console.log("Clicking");
     const playbackUrl = `/solrwayback/services/web/${doc.wayback_date}/${doc.url}`;
     getPlaybackFunction(playbackUrl);
     // Fetch page resources (timestamps/versions)
@@ -193,6 +195,7 @@ function App() {
                   Base URL: {playbackData.baseUrl}
                 </div>
                 <PlaybackViewer
+                getPlaybackFunction={getPlaybackFunction}
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
                   pageResources={pageResources}
@@ -205,14 +208,14 @@ function App() {
                 </div>
               )
             )}
-          {/*  {pageResources && (*/}
-          {/*  <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>*/}
-          {/*    <h3>Page Resources ({pageResources.length || 0})</h3>*/}
-          {/*    <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>*/}
-          {/*      {JSON.stringify(pageResources, null, 2)}*/}
-          {/*    </pre>*/}
-          {/*  </div>*/}
-          {/*)}*/}
+            {/*  {pageResources && (*/}
+            {/*  <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>*/}
+            {/*    <h3>Page Resources ({pageResources.length || 0})</h3>*/}
+            {/*    <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>*/}
+            {/*      {JSON.stringify(pageResources, null, 2)}*/}
+            {/*    </pre>*/}
+            {/*  </div>*/}
+            {/*)}*/}
           </div>
         </div>
       </div>

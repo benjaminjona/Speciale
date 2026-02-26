@@ -11,6 +11,7 @@ interface PlaybackViewerProps {
   htmlContent: string | null;
   baseUrl: string | null;
   pageResources:any
+  getPlaybackFunction: (url: string) => Promise<void>;
 }
 
 /**
@@ -18,10 +19,14 @@ interface PlaybackViewerProps {
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerProps) => {
+const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction }:PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
   const pageResourcesJson = JSON.stringify(pageResources);
+  console.log("", baseUrl);
+
+
 
   useEffect(() => {
     if (!htmlContent) return;
@@ -30,7 +35,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     let processedHtml = htmlContent;
 
     // Inject <base> tag so relative links (CSS, Images, Links) resolve against the backend
-    if (baseUrl) {
+  if (baseUrl) {
       const baseTag = `<base href="${baseUrl}" />`;
       if (processedHtml.includes('<head>')) {
         processedHtml = processedHtml.replace('<head>', `<head>${baseTag}`);
@@ -45,11 +50,6 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
       <script>
         const pageResources = ${pageResourcesJson};
         const MAX_TIME_DIFF_MS = ${maxTimeDiffMs};
-        console.log(pageResources);
-        console.log("Max allowed time diff (ms):", MAX_TIME_DIFF_MS);
-        console.log("-----------------------------------------");
-        console.log("SolrWayback Custom Script Injected Successfully!");
-        console.log("This script is running inside the playback context.");
         
         // Parse a timeDifference value (number in ms, or string like "-3 days, 2 hours") into absolute ms
         function parseTimeDiffToMs(val) {
@@ -80,7 +80,6 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     const imgSrc = resourceInfo.downloadUrl;
     const timeDiff = resourceInfo.timeDifference;
     const timeDiffMs = parseTimeDiffToMs(timeDiff);
-    console.log("Resource:", imgSrc, "| timeDifference:", timeDiff, "| parsed ms:", timeDiffMs, "| threshold:", MAX_TIME_DIFF_MS);
     const isOverThreshold = isNaN(timeDiffMs) || timeDiffMs > MAX_TIME_DIFF_MS;
     // Only highlight resources that exceed the threshold
     if (!isOverThreshold) return;
@@ -125,6 +124,22 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
 });
     });
         console.log("-----------------------------------------");
+
+        // Intercept clicks on all <a> tags and forward href to parent
+        document.addEventListener("click", function(e) {
+          var anchor = e.target.closest ? e.target.closest("a") : null;
+          if (!anchor) {
+            // fallback for older browsers
+            var el = e.target;
+            while (el && el.tagName !== "A") el = el.parentElement;
+            anchor = el;
+          }
+          if (anchor && anchor.href) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.parent.postMessage({ type: "__swb_link_click", href: anchor.href }, "*");
+          }
+        }, true);
       </script>
     `;
     
@@ -142,11 +157,34 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources }:PlaybackViewerPro
     const newBlobUrl = URL.createObjectURL(blob);
     setBlobUrl(newBlobUrl);
 
-    // Cleanup blob URL when component unmounts or content changes
     return () => {
       URL.revokeObjectURL(newBlobUrl);
     };
   }, [htmlContent, baseUrl, pageResourcesJson, maxTimeDiffMs]);
+
+  // Listen for link click messages from the iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === '__swb_link_click' && typeof event.data.href === 'string') {
+        // Strip the backend origin so the request goes through the Vite proxy
+        let href = event.data.href;
+        try {
+          const url = new URL(href);
+          // If the link points at the backend (e.g. localhost:8080), convert to a relative path
+          if (url.origin !== window.location.origin) {
+            href = url.pathname + url.search + url.hash;
+          }
+        } catch (_) {
+          // Already a relative path, use as-is
+        }
+        getPlaybackFunction(href);
+        console.log("Link clicked inside playback:", href);
+        
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 
