@@ -24,10 +24,6 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
   // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
   const pageResourcesJson = JSON.stringify(pageResources);
-  console.log(pageResourcesJson);
-  console.log("", baseUrl);
-
-
 
   useEffect(() => {
     if (!htmlContent) return;
@@ -167,20 +163,20 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === '__swb_link_click' && typeof event.data.href === 'string') {
-        // Strip the backend origin so the request goes through the Vite proxy
         let href = event.data.href;
+
+        // Strip backend origin so the request goes through the Vite proxy
         try {
           const url = new URL(href);
-          // If the link points at the backend (e.g. localhost:8080), convert to a relative path
           if (url.origin !== window.location.origin) {
             href = url.pathname + url.search + url.hash;
           }
         } catch (_) {
           // Already a relative path, use as-is
         }
+
         getPlaybackFunction(href);
         console.log("Link clicked inside playback:", href);
-        
       }
     };
     window.addEventListener('message', handleMessage);

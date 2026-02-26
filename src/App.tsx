@@ -64,14 +64,18 @@ function App() {
   // Given a playback href like /solrwayback/services/web/20200115120000/http://example.com,
   // look up the Solr doc to get source_file_path/offset, then fetch page resources.
   const resolveAndFetchResources = async (href: string) => {
-    const match = href.match(/\/solrwayback\/services\/web(?:Proxy)?\/\d{14}\/(.+)/);
+    const match = href.match(/\/solrwayback\/services\/web(?:Proxy)?\/(\d{14})\/(.+)/);
     if (!match) {
       console.warn("Could not parse playback href:", href);
       return;
     }
 
-    const originalUrl = match[1];
-    const query = `url:"${originalUrl}"`;
+    const [, wd, originalUrl] = match;
+    // Convert wayback_date (20031008060850) to Solr crawl_date format (2003-10-08T06:08:50Z)
+    const crawlDate = `${wd.slice(0,4)}-${wd.slice(4,6)}-${wd.slice(6,8)}T${wd.slice(8,10)}:${wd.slice(10,12)}:${wd.slice(12,14)}Z`;
+    const query = `domain:"${originalUrl}" AND crawl_date:${crawlDate}`;
+    console.log("here we are");
+    console.log(query);
     const searchUrl = `/solrwayback/services/frontend/solr/search/results/?query=${encodeURIComponent(query)}&grouping=false`;
 
     try {
