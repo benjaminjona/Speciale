@@ -12,6 +12,7 @@ interface PlaybackViewerProps {
   baseUrl: string | null;
   pageResources:any
   getPlaybackFunction: (url: string) => Promise<void>;
+  resolveAndFetchResources: (url: string) => void;
 }
 
 /**
@@ -19,7 +20,7 @@ interface PlaybackViewerProps {
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction }:PlaybackViewerProps) => {
+const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction,resolveAndFetchResources }:PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
@@ -181,7 +182,11 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [getPlaybackFunction]);
+  }, []);
+
+  useEffect(() => {
+    resolveAndFetchResources(baseUrl || "");
+  }, [baseUrl]);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 

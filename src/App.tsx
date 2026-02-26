@@ -54,6 +54,7 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      console.log("Fetched page resources:", data);
       setPageResources(data);
       setBaseCrawlTime(data?.pageCrawlDate || null);
     } catch (err) {
@@ -73,7 +74,7 @@ function App() {
     const [, wd, originalUrl] = match;
     // Convert wayback_date (20031008060850) to Solr crawl_date format (2003-10-08T06:08:50Z)
     const crawlDate = `${wd.slice(0,4)}-${wd.slice(4,6)}-${wd.slice(6,8)}T${wd.slice(8,10)}:${wd.slice(10,12)}:${wd.slice(12,14)}Z`;
-    const query = `domain:"${originalUrl}" AND crawl_date:${crawlDate}`;
+    const query = `url:"${originalUrl}" AND crawl_date:"${crawlDate}"`;
     console.log("here we are");
     console.log(query);
     const searchUrl = `/solrwayback/services/frontend/solr/search/results/?query=${encodeURIComponent(query)}&grouping=false`;
@@ -83,7 +84,6 @@ function App() {
       if (!response.ok) return;
       const data = await response.json();
       const doc = data?.response?.docs?.[0];
-      console.log("Resolved doc for resource fetching:", doc);
       if (doc?.source_file_path && doc?.source_file_offset != null) {
         getHarvestedPageResources(doc.source_file_path, doc.source_file_offset);
       }
@@ -93,11 +93,6 @@ function App() {
   };
 
   // Wrapper passed to PlaybackViewer — loads playback HTML and fetches page resources in parallel
-  const handlePlaybackNavigation = async (href: string) => {
-    setPageResources(null);
-    getPlaybackFunction(href);
-    resolveAndFetchResources(href);
-  };
 
   const handleSearch = async (query: string) => {
     if (!query) return;
@@ -233,7 +228,8 @@ function App() {
                   Base URL: {playbackData.baseUrl}
                 </div>
                 <PlaybackViewer
-                getPlaybackFunction={handlePlaybackNavigation}
+                getPlaybackFunction={getPlaybackFunction}
+                resolveAndFetchResources={resolveAndFetchResources}
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
                   pageResources={pageResources}
