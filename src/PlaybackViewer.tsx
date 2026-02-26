@@ -24,6 +24,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
   // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
   const pageResourcesJson = JSON.stringify(pageResources);
+  console.log(pageResourcesJson);
   console.log("", baseUrl);
 
 
@@ -184,7 +185,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [getPlaybackFunction]);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 

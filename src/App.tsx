@@ -61,6 +61,40 @@ function App() {
     }
   };
 
+  // Given a playback href like /solrwayback/services/web/20200115120000/http://example.com,
+  // look up the Solr doc to get source_file_path/offset, then fetch page resources.
+  const resolveAndFetchResources = async (href: string) => {
+    const match = href.match(/\/solrwayback\/services\/web(?:Proxy)?\/\d{14}\/(.+)/);
+    if (!match) {
+      console.warn("Could not parse playback href:", href);
+      return;
+    }
+
+    const originalUrl = match[1];
+    const query = `url:"${originalUrl}"`;
+    const searchUrl = `/solrwayback/services/frontend/solr/search/results/?query=${encodeURIComponent(query)}&grouping=false`;
+
+    try {
+      const response = await fetch(searchUrl);
+      if (!response.ok) return;
+      const data = await response.json();
+      const doc = data?.response?.docs?.[0];
+      console.log("Resolved doc for resource fetching:", doc);
+      if (doc?.source_file_path && doc?.source_file_offset != null) {
+        getHarvestedPageResources(doc.source_file_path, doc.source_file_offset);
+      }
+    } catch (err) {
+      console.error("Error resolving page resources for navigation:", err);
+    }
+  };
+
+  // Wrapper passed to PlaybackViewer — loads playback HTML and fetches page resources in parallel
+  const handlePlaybackNavigation = async (href: string) => {
+    setPageResources(null);
+    getPlaybackFunction(href);
+    resolveAndFetchResources(href);
+  };
+
   const handleSearch = async (query: string) => {
     if (!query) return;
 
@@ -195,7 +229,7 @@ function App() {
                   Base URL: {playbackData.baseUrl}
                 </div>
                 <PlaybackViewer
-                getPlaybackFunction={getPlaybackFunction}
+                getPlaybackFunction={handlePlaybackNavigation}
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
                   pageResources={pageResources}
