@@ -11,8 +11,7 @@ interface PlaybackViewerProps {
   htmlContent: string | null;
   baseUrl: string | null;
   pageResources:any
-  getPlaybackFunction: (url: string) => Promise<void>;
-  resolveAndFetchResources: (url: string) => void;
+  getPlaybackFunction: (url: string, flag?:boolean) => Promise<void>;
 }
 
 /**
@@ -20,7 +19,7 @@ interface PlaybackViewerProps {
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction,resolveAndFetchResources }:PlaybackViewerProps) => {
+const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction }:PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
@@ -99,7 +98,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
             backgroundColor: "red",
             color: "white",
             fontSize: "10px",
-            padding: "2px 4px",
+            padding: "2px 3px",
             fontWeight: "bold",
             zIndex: "2147483647",
             lineHeight: "normal",
@@ -111,7 +110,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
         // Position label at top-right of the image
         function positionLabel() {
           var rect = theImage.getBoundingClientRect();
-          label.style.top = (window.scrollY + rect.top -13) + "px";
+          label.style.top = (window.scrollY + rect.top -14) + "px";
           label.style.left = (window.scrollX + rect.right - label.offsetWidth) + "px";
         }
         // Wait for image to load (may have 0 rect before load)
@@ -176,7 +175,8 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
           // Already a relative path, use as-is
         }
 
-        getPlaybackFunction(href);
+        getPlaybackFunction(href,true);
+
         console.log("Link clicked inside playback:", href);
       }
     };
@@ -184,9 +184,9 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  useEffect(() => {
-    resolveAndFetchResources(baseUrl || "");
-  }, [baseUrl]);
+  // useEffect(() => {
+  //   resolveAndFetchResources(baseUrl || "");
+  // }, [baseUrl]);
 
   if (!blobUrl) return <div>Preparing playback...</div>;
 
@@ -253,7 +253,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
 
           <Text fontSize="xs" color="gray.500">
             (Resources beyond this threshold are highlighted in{' '}
-            <Text as="span" color="red.500" fontWeight="bold">red</Text>)
+            <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>)
           </Text>
         </Flex>
       </Box>

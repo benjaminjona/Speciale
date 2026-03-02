@@ -23,10 +23,10 @@ function App() {
   const [baseCrawlTime, setBaseCrawlTime] = useState<number | null>(null);
 
   // Search states
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  // const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<SolrDoc[]>([]);
 
-  const getPlaybackFunction = async (url: string) => {
+  const getPlaybackFunction = async (url: string,flag?:boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -38,6 +38,7 @@ function App() {
       const htmlText = await response.text();
       // We also need the final URL to set the <base> tag correcty
       const finalUrl = response.url;
+      if(flag) resolveAndFetchResources(finalUrl);
 
       setPlaybackData({ html: htmlText, baseUrl: finalUrl });
     } catch (err: any) {
@@ -176,7 +177,7 @@ function App() {
         >
           <Search
             onSubmit={(value) => {
-              setSearchQuery(value);
+              // setSearchQuery(value);
               handleSearch(value);
             }}
           />
@@ -252,7 +253,6 @@ function App() {
                 </div>
                 <PlaybackViewer
                   getPlaybackFunction={getPlaybackFunction}
-                  resolveAndFetchResources={resolveAndFetchResources}
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
                   pageResources={pageResources}
@@ -265,14 +265,6 @@ function App() {
                 </div>
               )
             )}
-            {/*  {pageResources && (*/}
-            {/*  <div style={{ marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>*/}
-            {/*    <h3>Page Resources ({pageResources.length || 0})</h3>*/}
-            {/*    <pre style={{ maxHeight: '200px', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '10px' }}>*/}
-            {/*      {JSON.stringify(pageResources, null, 2)}*/}
-            {/*    </pre>*/}
-            {/*  </div>*/}
-            {/*)}*/}
           </div>
         </div>
       </div>
