@@ -2,6 +2,7 @@ import { useState } from "react";
 import PlaybackViewer from "./PlaybackViewer";
 import { Provider } from "./src/components/ui/provider";
 import { Search } from "./components/search";
+import { toaster, Toaster } from "./src/components/ui/toaster";
 
 interface SolrDoc {
   wayback_date: number | string;
@@ -46,7 +47,10 @@ function App() {
     }
   };
 
-  const getHarvestedPageResources = async (source_file_path: string, offset: number) => {
+  const getHarvestedPageResources = async (source_file_path: string, offset: number, setBaseDate?: boolean) => {
+    console.log("here we are")
+    console.log(setBaseDate);
+
     try {
       const url = `/solrwayback/services/timestampsforpage/?source_file_path=${encodeURIComponent(source_file_path)}&offset=${offset}`;
       const response = await fetch(url);
@@ -56,7 +60,25 @@ function App() {
       const data = await response.json();
       console.log("Fetched page resources:", data);
       setPageResources(data);
-      setBaseCrawlTime(data?.pageCrawlDate || null);
+      if (setBaseDate) {
+        setBaseCrawlTime(data?.pageCrawlDate || null);
+      } else {
+        if (data.pageCrawlDate !== baseCrawlTime) {
+          const baseDate = new Date(baseCrawlTime || 0);
+          const pageDate = new Date(data.pageCrawlDate);
+          const timeDiffMs = Math.abs(pageDate.getTime() - baseDate.getTime());
+          const timeDiffDays = Math.floor(timeDiffMs / (1000 * 60 * 60 * 24));
+          const timeDiffHours = Math.floor((timeDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+          toaster.create({
+            title: "Time jump detected!",
+            description: `The page you are viewing has a different crawl date than the base date. Time difference: ${timeDiffDays} days and ${timeDiffHours} hours.`,
+            type: "warning"
+          })
+
+        }
+      }
+
     } catch (err) {
       console.error("Error fetching timestamps:", err);
     }
@@ -73,7 +95,7 @@ function App() {
 
     const [, wd, originalUrl] = match;
     // Convert wayback_date (20031008060850) to Solr crawl_date format (2003-10-08T06:08:50Z)
-    const crawlDate = `${wd.slice(0,4)}-${wd.slice(4,6)}-${wd.slice(6,8)}T${wd.slice(8,10)}:${wd.slice(10,12)}:${wd.slice(12,14)}Z`;
+    const crawlDate = `${wd.slice(0, 4)}-${wd.slice(4, 6)}-${wd.slice(6, 8)}T${wd.slice(8, 10)}:${wd.slice(10, 12)}:${wd.slice(12, 14)}Z`;
     const query = `url:"${originalUrl}" AND crawl_date:"${crawlDate}"`;
     console.log("here we are");
     console.log(query);
@@ -85,7 +107,7 @@ function App() {
       const data = await response.json();
       const doc = data?.response?.docs?.[0];
       if (doc?.source_file_path && doc?.source_file_offset != null) {
-        getHarvestedPageResources(doc.source_file_path, doc.source_file_offset);
+        getHarvestedPageResources(doc.source_file_path, doc.source_file_offset, false);
       }
     } catch (err) {
       console.error("Error resolving page resources for navigation:", err);
@@ -121,12 +143,11 @@ function App() {
   };
 
   const handleResultClick = (doc: SolrDoc) => {
-    console.log("Clicking");
     const playbackUrl = `/solrwayback/services/web/${doc.wayback_date}/${doc.url}`;
     getPlaybackFunction(playbackUrl);
     // Fetch page resources (timestamps/versions)
     if (doc.source_file_path && doc.source_file_offset) {
-      getHarvestedPageResources(doc.source_file_path, doc.source_file_offset);
+      getHarvestedPageResources(doc.source_file_path, doc.source_file_offset, true);
     }
   };
 
@@ -141,6 +162,8 @@ function App() {
         }}
       >
         <h1>SolrWayback Playback w/ Search</h1>
+        <div>{new Date(Number(baseCrawlTime)).toString()}</div>
+        <Toaster />
 
         {/* Search Section */}
         <div
@@ -228,8 +251,8 @@ function App() {
                   Base URL: {playbackData.baseUrl}
                 </div>
                 <PlaybackViewer
-                getPlaybackFunction={getPlaybackFunction}
-                resolveAndFetchResources={resolveAndFetchResources}
+                  getPlaybackFunction={getPlaybackFunction}
+                  resolveAndFetchResources={resolveAndFetchResources}
                   htmlContent={playbackData.html}
                   baseUrl={playbackData.baseUrl}
                   pageResources={pageResources}
