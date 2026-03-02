@@ -34,7 +34,7 @@ export const Search = ({ onSubmit, placeholder }: SearchProps) => {
   ) : undefined;
 
   return (
-    <InputGroup flex="1" startElement={<LuSearch />} endElement={endElement}>
+    <InputGroup  startElement={<LuSearch />} endElement={endElement}>
       <Input
         ref={inputRef}
         placeholder={placeholder || "Search..."}

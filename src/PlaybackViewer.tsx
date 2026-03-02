@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import  {useEffect, useState} from 'react';
 import {
   Box,
   Flex,
@@ -10,8 +10,8 @@ import {
 interface PlaybackViewerProps {
   htmlContent: string | null;
   baseUrl: string | null;
-  pageResources:any
-  getPlaybackFunction: (url: string, flag?:boolean) => Promise<void>;
+  pageResources: any
+  getPlaybackFunction: (url: string, flag?: boolean) => Promise<void>;
 }
 
 /**
@@ -19,7 +19,7 @@ interface PlaybackViewerProps {
  * Wraps the fetched archived HTML in an iframe-like container (Shadow DOM or Iframe)
  * to isolate styles and scripts, while allowing injection of custom scripts.
  */
-const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunction }:PlaybackViewerProps) => {
+const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunction}: PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
@@ -32,7 +32,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
     let processedHtml = htmlContent;
 
     // Inject <base> tag so relative links (CSS, Images, Links) resolve against the backend
-  if (baseUrl) {
+    if (baseUrl) {
       const baseTag = `<base href="${baseUrl}" />`;
       if (processedHtml.includes('<head>')) {
         processedHtml = processedHtml.replace('<head>', `<head>${baseTag}`);
@@ -74,51 +74,51 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
         document.addEventListener("DOMContentLoaded", function() {
             if (!pageResources || !pageResources.resources) return;
             pageResources.resources.forEach((resourceInfo) => {
-    const imgSrc = resourceInfo.downloadUrl;
-    const timeDiff = resourceInfo.timeDifference;
-    const timeDiffMs = parseTimeDiffToMs(timeDiff);
-    const isOverThreshold = isNaN(timeDiffMs) || timeDiffMs > MAX_TIME_DIFF_MS;
-    // Only highlight resources that exceed the threshold
-    if (!isOverThreshold) return;
+              const imgSrc = resourceInfo.downloadUrl;
+              const timeDiff = resourceInfo.timeDifference;
+              const timeDiffMs = parseTimeDiffToMs(timeDiff);
+              const isOverThreshold = isNaN(timeDiffMs) || timeDiffMs > MAX_TIME_DIFF_MS;
+              // Only highlight resources that exceed the threshold
+              if (!isOverThreshold) return;
 
-    const allImages = document.querySelectorAll('img');
-    const theImage = Array.from(allImages).find(img => img.src === imgSrc);
-    
-    if (theImage) {
-        // Use outline (doesn't affect layout) instead of border/wrapper
-        theImage.style.outline = "3px solid red";
-        theImage.style.outlineOffset = "-3px";
-
-        // Create a floating label positioned over the image, appended to body
-        const label = document.createElement("span");
-        label.innerText = timeDiff;
-        label.className = "__swb-overlay-label";
-        Object.assign(label.style, {
-            position: "absolute",
-            backgroundColor: "red",
-            color: "white",
-            fontSize: "10px",
-            padding: "2px 3px",
-            fontWeight: "bold",
-            zIndex: "2147483647",
-            lineHeight: "normal",
-            pointerEvents: "none",
-            whiteSpace: "nowrap"
-        });
-        document.body.appendChild(label);
-
-        // Position label at top-right of the image
-        function positionLabel() {
-          var rect = theImage.getBoundingClientRect();
-          label.style.top = (window.scrollY + rect.top -14) + "px";
-          label.style.left = (window.scrollX + rect.right - label.offsetWidth) + "px";
-        }
-        // Wait for image to load (may have 0 rect before load)
-        if (theImage.complete) { positionLabel(); } else { theImage.addEventListener("load", positionLabel); }
-        window.addEventListener("resize", positionLabel);
-        window.addEventListener("scroll", positionLabel);
-    }
-});
+          const allImages = document.querySelectorAll('img');
+          const theImage = Array.from(allImages).find(img => img.src === imgSrc);
+          
+          if (theImage) {
+              // Use outline (doesn't affect layout) instead of border/wrapper
+              theImage.style.outline = "3px solid red";
+              theImage.style.outlineOffset = "-3px";
+      
+              // Create a floating label positioned over the image, appended to body
+              const label = document.createElement("span");
+              label.innerText = timeDiff;
+              label.className = "__swb-overlay-label";
+              Object.assign(label.style, {
+                  position: "absolute",
+                  backgroundColor: "red",
+                  color: "white",
+                  fontSize: "10px",
+                  padding: "2px 3px",
+                  fontWeight: "bold",
+                  zIndex: "2147483647",
+                  lineHeight: "normal",
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap"
+              });
+              document.body.appendChild(label);
+      
+              // Position label at top-right of the image
+              function positionLabel() {
+                var rect = theImage.getBoundingClientRect();
+                label.style.top = (window.scrollY + rect.top -14) + "px";
+                label.style.left = (window.scrollX + rect.right - label.offsetWidth) + "px";
+              }
+              // Wait for image to load (may have 0 rect before load)
+              if (theImage.complete) { positionLabel(); } else { theImage.addEventListener("load", positionLabel); }
+              window.addEventListener("resize", positionLabel);
+              window.addEventListener("scroll", positionLabel);
+          }
+      });
     });
         console.log("-----------------------------------------");
 
@@ -139,7 +139,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
         }, true);
       </script>
     `;
-    
+
     if (processedHtml.includes('</body>')) {
       processedHtml = processedHtml.replace('</body>', `${customScript}</body>`);
     } else {
@@ -150,7 +150,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
     // Using a Blob URL allows us to render the full HTML document in an iframe
     // without cross-origin restrictions (it treats it as same-origin in many ways, 
     // though distinct).
-    const blob = new Blob([processedHtml], { type: 'text/html' });
+    const blob = new Blob([processedHtml], {type: 'text/html'});
     const newBlobUrl = URL.createObjectURL(blob);
     setBlobUrl(newBlobUrl);
 
@@ -175,7 +175,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
           // Already a relative path, use as-is
         }
 
-        getPlaybackFunction(href,true);
+        getPlaybackFunction(href, true);
 
         console.log("Link clicked inside playback:", href);
       }
@@ -194,16 +194,24 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
   const currentDays = Math.round(maxTimeDiffMs / (24 * 60 * 60 * 1000));
 
   return (
-    <div className="playback-wrapper" style={{ width: '100%' }}>
-      <iframe 
-        src={blobUrl} 
-        style={{ width: '100%', height: '800px', border: 'none' }}
+    <div className="playback-wrapper" style={{width: '100%', position:"relative"}}>
+      <iframe
+        src={blobUrl}
+        style={{width: '100%', height: "100vh", border: 'none'}}
         title="Archived Content"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
 
       {/* Time Difference Threshold Control */}
-      <Box mt={3} p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200">
+      <Flex mt={3} p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200" style={{
+        width: "100%",
+         position: "absolute",
+        left:"0",
+        justifyContent: "center",
+        justifyItems: "center",
+        bottom: "0"
+
+      }}  >
         <Flex align="center" gap={4} wrap="wrap">
           <Text fontWeight="bold" fontSize="sm" whiteSpace="nowrap">
             Max allowed time difference:
@@ -222,9 +230,9 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
             >
               <Slider.Control>
                 <Slider.Track>
-                  <Slider.Range />
+                  <Slider.Range/>
                 </Slider.Track>
-                <Slider.Thumb index={0} />
+                <Slider.Thumb index={0}/>
               </Slider.Control>
             </Slider.Root>
           </Box>
@@ -243,10 +251,10 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
             w="90px"
           >
             <NumberInput.Control>
-              <NumberInput.IncrementTrigger />
-              <NumberInput.DecrementTrigger />
+              <NumberInput.IncrementTrigger/>
+              <NumberInput.DecrementTrigger/>
             </NumberInput.Control>
-            <NumberInput.Input textAlign="center" />
+            <NumberInput.Input textAlign="center"/>
           </NumberInput.Root>
 
           <Text fontSize="sm" color="gray.600">days</Text>
@@ -256,7 +264,7 @@ const PlaybackViewer = ({ htmlContent, baseUrl,pageResources, getPlaybackFunctio
             <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>)
           </Text>
         </Flex>
-      </Box>
+      </Flex>
     </div>
   );
 };
