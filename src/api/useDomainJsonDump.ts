@@ -32,5 +32,7 @@ export const useDomainJsonDump = (href: string | null) => {
     queryKey: ["domainJsonDump", href],
     queryFn: () => fetchDomainJsonDump(href!),
     enabled: !!href,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 };
