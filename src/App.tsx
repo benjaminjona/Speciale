@@ -5,6 +5,7 @@ import {toaster, Toaster} from "./src/components/ui/toaster";
 import {getSearchUrl, getTimeJumpToastDescription} from "./utils/util.ts";
 import SearchResult from "./components/SearchResult.tsx";
 import {SolrDoc} from "./types.ts";
+import {Overview} from "./components/Overview.tsx";
 
 
 interface PlaybackData {
@@ -40,6 +41,8 @@ function App() {
       setLoading(false);
     }
   };
+
+
 
   const getDivergentResources = async (source_file_path?: string, offset?: number, setBaseDate?: boolean) => {
     if (!source_file_path || offset === undefined) return;
@@ -113,6 +116,8 @@ function App() {
       <div style={{display: "flex"}}>
         <div style={{display: "flex", flexDirection: "column", width: "300px",height: "100vh", overflowY: "auto", padding: "10px"}}>
           <h1>SolrWayback Playback w/ Search</h1>
+          <Overview />
+
           <div>{new Date(Number(baseCrawlTime)).toString()}</div>
           <Toaster/>
           <Search onSubmit={(value) => handleSearch(value)}/>
@@ -138,7 +143,7 @@ function App() {
           {playbackData ? (
             <>
               {/*<h3>Playback View</h3>*/}
-              {/*Base URL: {playbackData.baseUrl}*/}
+              Base URL: {playbackData.baseUrl}
               <PlaybackViewer
                 getPlaybackFunction={getPlaybackFunction}
                 htmlContent={playbackData.html}
