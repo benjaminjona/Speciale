@@ -1,6 +1,7 @@
+import { jsonData } from "@/components/Overview";
 import { useQuery } from "@tanstack/react-query";
 
-const fetchDomainJsonDump = async (href: string) => {
+const fetchDomainJsonDump = async (href: string) : Promise<jsonData[]> => {
   const normalizedHref = href.startsWith("http") ? href : `http://${href}`;
   const urlObj = new URL(normalizedHref);
   const domain = urlObj.hostname;
