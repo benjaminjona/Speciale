@@ -19,7 +19,13 @@ const fetchDomainJsonDump = async (href: string) => {
   const searchUrl = `${baseUrl}?${params.toString()}`;
   console.log("Requesting:", searchUrl);
 
-  const response = await fetch(searchUrl);
+  // const response = await fetch(searchUrl);
+  // if (!response.ok) {
+  //   throw new Error(`Fetch failed with status: ${response.status}`);
+  // }
+  // return response.json();
+
+  const response = await fetch("/dummyData.json");
   if (!response.ok) {
     throw new Error(`Fetch failed with status: ${response.status}`);
   }
