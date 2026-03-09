@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import { useDomainJsonDump } from "../api/useDomainJsonDump";
-
-type TreeLink = {
-  id: string;
-  url: string;
-  wayback_date: number;
-  links: TreeLink[] | any;
-};
+import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
+// import {DomainGraph} from "../components/DomainGraph.tsx";
+// import {ClusterBubbleGraph} from "../components/ClusterBubbleGraph.tsx";
+// import {CytoscapeDomainGraph} from "../components/CytoscapeDomainGraph.tsx";
+import SigmaGraph from "./SigmaGraph.tsx";
 
 export type JsonDataLink = {
   id: string;
@@ -18,75 +16,11 @@ export type JsonDataLink = {
   links: string[];
 };
 
-const buildTreeWithClosestMatch = (
-  data: JsonDataLink[],
-  rootUrl: string,
-  requestedTimestamp: number,
-  domain : string
-): TreeLink | null => {
-  if (!data || !rootUrl) return null;
-
-  const visited = new Set<string>();
-
-  // Find the closest snapshot for a given URL
-  const findClosestMatch = (
-    url: string,
-    wayback_date: number,
-  ): JsonDataLink | undefined => {
-    if(!url.includes(domain)) return undefined; 
-
-    const candidates = data.filter(
-      (item) => item.url === url || item.url_norm === url,
-    );
-    if (candidates.length === 0) return undefined;
-    return candidates.reduce((closest, item) => {
-      return Math.abs(item.wayback_date - wayback_date) <
-        Math.abs(closest.wayback_date - wayback_date)
-        ? item
-        : closest;
-    }, candidates[0]);
-  };
-
-  const findJsonMatch = (
-    url: string,
-    wayback_date: number,
-    visited: Set<string>,
-  ): TreeLink => {
-    const closest = findClosestMatch(url, wayback_date);
-    if (!closest || visited.has(closest.id)) {
-      return { id: closest?.id || "", url, wayback_date, links: [] };
-    }
-
-    visited.add(closest.id);
-
-    const filteredLinks = closest.links?.filter((linkUrl) => linkUrl.includes(domain)) || [];
-
-    const childLinks: TreeLink[] =
-      filteredLinks.map((linkUrl) => {
-        return findJsonMatch(linkUrl, requestedTimestamp, visited);
-      }) || [];
-
-    return {
-      id: closest.id,
-      url: closest.url,
-      wayback_date: closest.wayback_date,
-      links: childLinks,
-    };
-  };
-
-  return findJsonMatch(rootUrl, requestedTimestamp, visited);
-};
-
-const findLinksLengthById = (data: JsonDataLink[], id: string): number => {
-  const item = data.find((d) => d.id === id);
-  return item ? item.links.length : 0;
-};
-
 export const Overview = () => {
   const [href, setHref] = useState<string | null>(null);
   const { data, isLoading, isError } = useDomainJsonDump(href);
-  const url = "http://www.kidpub.org/kidpub";
-  const wayback_date = 19980131024414;
+  const url = "http://www.kidpub.org:80/kidpub/";
+  const wayback_date = 19970404180804;
   const domain = "kidpub.org";
 
   const treeData = useMemo(() => {
@@ -103,18 +37,19 @@ export const Overview = () => {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Overview</h1>
-      {/*{data.map(data => (data))}*/}
-
-      <p className="text-gray-300 mb-2">Fetching data for specific domains.</p>
       <button
-        onClick={() => setHref("kidlink.org")}
+        onClick={() => setHref("http://www.kidpub.org/kidpub")}
         className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
       >
         Fetch Resources for Kidlink
       </button>
       {isLoading && <p>Loading...</p>}
       {isError && <p>Error fetching data.</p>}
-      {/* {data && <pre>{JSON.stringify(data, null, 2)}</pre>} */}
+      {/*{treeData && <DomainGraph treeData={treeData}/>}*/}
+      {/*{treeData &&<ClusterBubbleGraph treeData={treeData}/> }*/}
+      {/*{treeData && <CytoscapeDomainGraph treeData={treeData}/> }*/}
+      {/*{treeData && <SigmaClusterGraph treeData={treeData}/> }*/}
+      {treeData && <SigmaGraph treeData={treeData}/> }
     </div>
   );
 };

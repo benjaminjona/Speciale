@@ -6,7 +6,7 @@ import {getSearchUrl, getTimeJumpToastDescription} from "./utils/util.ts";
 import SearchResult from "./components/SearchResult.tsx";
 import {SolrDoc} from "./types.ts";
 import {Overview} from "./components/Overview.tsx";
-
+// import {ClusterBubbleGraph} from "@/components/ClusterBubbleGraph.tsx";
 
 interface PlaybackData {
   html: string;
@@ -113,10 +113,10 @@ function App() {
 
   return (
 
+    <>
       <div style={{display: "flex"}}>
         <div style={{display: "flex", flexDirection: "column", width: "300px",height: "100vh", overflowY: "auto", padding: "10px"}}>
           <h1>SolrWayback Playback w/ Search</h1>
-          <Overview />
 
           <div>{new Date(Number(baseCrawlTime)).toString()}</div>
           <Toaster/>
@@ -159,7 +159,11 @@ function App() {
             )
           )}
         </div>
+
       </div>
+        <Overview />
+    </>
+
   );
 }
 
