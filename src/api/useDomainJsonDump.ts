@@ -1,7 +1,7 @@
-import { jsonData } from "@/components/Overview";
+import { JsonDataLink } from "@/components/Overview";
 import { useQuery } from "@tanstack/react-query";
 
-const fetchDomainJsonDump = async (href: string) : Promise<jsonData[]> => {
+const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   const normalizedHref = href.startsWith("http") ? href : `http://${href}`;
   const urlObj = new URL(normalizedHref);
   const domain = urlObj.hostname;
@@ -12,7 +12,10 @@ const fetchDomainJsonDump = async (href: string) : Promise<jsonData[]> => {
   params.append("query", `domain:${domain}`);
   params.append("fq", `domain:"${domain}"`);
   params.append("fq", 'content_type_norm:"html"');
-  params.append("fields", "wayback_date,url,url_path,url_norm,domain,links,id,source_file_path,source_file_offset");
+  params.append(
+    "fields",
+    "wayback_date,url,url_path,url_norm,domain,links,id,source_file_path,source_file_offset",
+  );
   params.append("flatten", "false");
   params.append("format", "json");
   params.append("gzip", "false");

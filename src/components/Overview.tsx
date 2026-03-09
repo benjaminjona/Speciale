@@ -1,21 +1,76 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useDomainJsonDump } from "../api/useDomainJsonDump";
 
-type dataProperties = {
+type TreeLink = {
+  id: string;
   url: string;
   wayback_date: number;
-  links: dataProperties[] | any;
-}
+  links: TreeLink[] | any;
+};
 
-export type jsonData = {
-  id : string;
+export type JsonDataLink = {
+  id: string;
   wayback_date: number;
   url_norm: string;
   url_path: string;
-  url : string;
+  url: string;
   domain: string;
   links: string[];
-}
+};
+
+const buildTreeWithClosestMatch = (
+  data: JsonDataLink[],
+  rootUrl: string,
+  requestedTimestamp: number,
+): TreeLink | null => {
+  if (!data || !rootUrl) return null;
+
+  const visited = new Set<string>();
+
+  // Find the closest snapshot for a given URL
+  const findClosestMatch = (
+    url: string,
+    wayback_date: number,
+  ): JsonDataLink | undefined => {
+    const candidates = data.filter(
+      (item) => item.url === url || item.url_norm === url,
+    );
+    if (candidates.length === 0) return undefined;
+    return candidates.reduce((closest, item) => {
+      return Math.abs(item.wayback_date - wayback_date) <
+        Math.abs(closest.wayback_date - wayback_date)
+        ? item
+        : closest;
+    }, candidates[0]);
+  };
+
+  const findJsonMatch = (
+    url: string,
+    wayback_date: number,
+    visited: Set<string>,
+  ): TreeLink => {
+    const closest = findClosestMatch(url, wayback_date);
+    if (!closest || visited.has(closest.id)) {
+      return { id: closest?.id || "", url, wayback_date, links: [] };
+    }
+
+    visited.add(closest.id);
+
+    const childLinks: TreeLink[] =
+      closest.links?.map((linkUrl) =>
+        findJsonMatch(linkUrl, requestedTimestamp, new Set(visited)),
+      ) || [];
+
+    return {
+      id: closest.id,
+      url: closest.url,
+      wayback_date: closest.wayback_date,
+      links: childLinks,
+    };
+  };
+
+  return findJsonMatch(rootUrl, requestedTimestamp, visited);
+};
 
 export const Overview = () => {
   const [href, setHref] = useState<string | null>(null);
@@ -23,33 +78,16 @@ export const Overview = () => {
   const url = "http://www.kidpub.org:80/kidpub/kidpub-template.html/";
   const wayback_date = 19991007201128;
 
-  const findJsonMatch = (url: string, wayback_date: number, visited = new Set<string>()): dataProperties => {
-    if (!data) return { url: "", wayback_date: 0, links: [] };
-    if (visited.has(url)) return { url, wayback_date, links: [] };
-    visited.add(url);
+  const treeData = useMemo(() => {
+    if (!data) return null; // wait until data is loaded
+    return buildTreeWithClosestMatch(data, url, wayback_date);
+  }, [data, url, wayback_date]);
 
-    const urljSON = data.find(item => {
-      return item.wayback_date === wayback_date && item.url === url;
-    });
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error loading data</div>;
 
-    //console.log("Found JSON item:", urljSON);
-
-    const result = urljSON?.links?.map(link => {
-      const dataProperty = findJsonMatch(link, wayback_date, new Set(visited));
-      return dataProperty;
-    });
-
-    // TODO: create a function that finds the clostest match from url and date 
-    // const findClosestMatch = (url: string, wayback_date: number): dataProperties | null => {
-
-    return {
-      url: urljSON?.url || url,
-      wayback_date: urljSON?.wayback_date || wayback_date,
-      links: result || []
-    };
-  }
-
-console.log(findJsonMatch(url, wayback_date));
+  console.log("Fetched data:", data?.length);
+  console.log("treeData:", treeData);
 
   return (
     <div className="p-4">
