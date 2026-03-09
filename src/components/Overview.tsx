@@ -85,14 +85,6 @@ export const Overview = () => {
 
   const treeData = useMemo(() => {
     if (!data) return null; // wait until data is loaded
-    const linksLength = findLinksLengthById(
-      data,
-      "19980131024414/9sgQ4ged6BcWd1Zp1QQchA",
-    );
-    console.log(
-      "Links length for ID 19980131024414/9sgQ4ged6BcWd1Zp1QQchA:",
-      linksLength,
-    );
     return buildTreeWithClosestMatch(data, url, wayback_date);
   }, [data, url, wayback_date]);
 
