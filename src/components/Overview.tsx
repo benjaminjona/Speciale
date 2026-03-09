@@ -22,6 +22,7 @@ const buildTreeWithClosestMatch = (
   data: JsonDataLink[],
   rootUrl: string,
   requestedTimestamp: number,
+  domain : string
 ): TreeLink | null => {
   if (!data || !rootUrl) return null;
 
@@ -32,6 +33,8 @@ const buildTreeWithClosestMatch = (
     url: string,
     wayback_date: number,
   ): JsonDataLink | undefined => {
+    if(!url.includes(domain)) return undefined; 
+
     const candidates = data.filter(
       (item) => item.url === url || item.url_norm === url,
     );
@@ -56,10 +59,12 @@ const buildTreeWithClosestMatch = (
 
     visited.add(closest.id);
 
+    const filteredLinks = closest.links?.filter((linkUrl) => linkUrl.includes(domain)) || [];
+
     const childLinks: TreeLink[] =
-      closest.links?.map((linkUrl) =>
-        findJsonMatch(linkUrl, requestedTimestamp, visited),
-      ) || [];
+      filteredLinks.map((linkUrl) => {
+        return findJsonMatch(linkUrl, requestedTimestamp, visited);
+      }) || [];
 
     return {
       id: closest.id,
@@ -82,10 +87,11 @@ export const Overview = () => {
   const { data, isLoading, isError } = useDomainJsonDump(href);
   const url = "http://www.kidpub.org:80/kidpub/kidpub-template.html/";
   const wayback_date = 19991007201128;
+  const domain = "kidpub.org";
 
   const treeData = useMemo(() => {
     if (!data) return null; // wait until data is loaded
-    return buildTreeWithClosestMatch(data, url, wayback_date);
+    return buildTreeWithClosestMatch(data, url, wayback_date, domain);
   }, [data, url, wayback_date]);
 
   if (isLoading) return <div>Loading...</div>;
