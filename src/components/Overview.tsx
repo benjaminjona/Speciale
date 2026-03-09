@@ -85,8 +85,8 @@ const findLinksLengthById = (data: JsonDataLink[], id: string): number => {
 export const Overview = () => {
   const [href, setHref] = useState<string | null>(null);
   const { data, isLoading, isError } = useDomainJsonDump(href);
-  const url = "http://www.kidpub.org:80/kidpub/kidpub-template.html/";
-  const wayback_date = 19991007201128;
+  const url = "http://www.kidpub.org/kidpub";
+  const wayback_date = 19980131024414;
   const domain = "kidpub.org";
 
   const treeData = useMemo(() => {
