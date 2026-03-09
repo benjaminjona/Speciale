@@ -58,7 +58,7 @@ const buildTreeWithClosestMatch = (
 
     const childLinks: TreeLink[] =
       closest.links?.map((linkUrl) =>
-        findJsonMatch(linkUrl, requestedTimestamp, new Set(visited)),
+        findJsonMatch(linkUrl, requestedTimestamp, visited),
       ) || [];
 
     return {
