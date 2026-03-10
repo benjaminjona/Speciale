@@ -35,8 +35,24 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     };
     mapData(treeData);
 
+    // Pre-compute total descendant count for each node (recursive)
+    const descendantCount = new Map<string, number>();
+    const countDescendants = (item: TreeLink): number => {
+      const id = item.id || item.url;
+      if (descendantCount.has(id)) return descendantCount.get(id)!;
+      let count = 0;
+      if (Array.isArray(item.links)) {
+        for (const child of item.links) {
+          count += 1 + countDescendants(child);
+        }
+      }
+      descendantCount.set(id, count);
+      return count;
+    };
+    countDescendants(treeData);
+
     const X_GAP = 0.6;
-    const maxLinks = 5;
+    const maxLinks = 1;
 
     const processNode = (nodeId: string, depth: number, force: boolean = false) => {
       const item = dataMap.current.get(nodeId);
@@ -59,8 +75,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           }
         };
         removeRecursive(nodeId);
-        graph.setNodeAttribute(nodeId, "color", linkCount > maxLinks ? "#6b6a6a" : "#cbd5e1");
-        graph.setNodeAttribute(nodeId, "label", linkCount > maxLinks ? `+${linkCount}` : "");
+        const desc = descendantCount.get(nodeId) || 0;
+        graph.setNodeAttribute(nodeId, "color", linkCount > 0 ? "#6b6a6a" : "#cbd5e1");
+        graph.setNodeAttribute(nodeId, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
 
@@ -76,6 +93,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           if (!childId || graph.hasNode(childId)) return;
 
           const childLinks = Array.isArray(child.links) ? child.links.length : 0;
+          const totalDescendants = descendantCount.get(childId) || 0;
           const yOffset = item.links.length > 1
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
@@ -83,12 +101,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           graph.addNode(childId, {
             x: px + X_GAP,
             y: py + yOffset,
-            size: 5 + Math.sqrt(childLinks),
-            color: childLinks > maxLinks ? "#6b6a6a" : "#cbd5e1",
-            // 2. Add border attributes here
+            size: Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50),
+            color: childLinks > 0 ? "#6b6a6a" : "#cbd5e1",
             borderColor: "#000000",
             borderSize: 0.1,
-            label: childLinks > maxLinks ? `+${childLinks}` : "",
+            label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
           });
 
@@ -108,9 +125,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     graph.addNode(rootId, {
       x: 0,
       y: 0.5,
-      size: 10,
+      size: 5,
       color: "#3b82f6",
-      borderColor: "#000000", // Darker blue border
+      borderColor: "#000000",
       borderSize: 0.1,
       label: "",
       url: treeData.url
