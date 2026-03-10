@@ -5,7 +5,10 @@ import {
   Text,
   Slider,
   NumberInput,
+  Dialog,
+  Portal,
 } from '@chakra-ui/react';
+import { LuSettings, LuX } from 'react-icons/lu';
 
 interface PlaybackViewerProps {
   htmlContent: string | null;
@@ -21,8 +24,8 @@ interface PlaybackViewerProps {
  */
 const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunction}: PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  // const [iframeURL, setIframeURL] = useState<string | null>(baseUrl || null);
-  const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000); // default 30 days
+  const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const pageResourcesJson = JSON.stringify(pageResources);
 
   useEffect(() => {
@@ -195,6 +198,62 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
   return (
     <div className="playback-wrapper" style={{width: '100%', position:"relative"}}>
+      <style>{`
+        .swb-gear-btn {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          z-index: 1000;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background-color: #002E70;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+        }
+        .swb-gear-btn:hover {
+          background-color: #003d94;
+          transform: scale(1.08);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+        }
+        .swb-gear-btn:active {
+          background-color: #001e4a;
+          transform: scale(0.96);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .swb-close-btn {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background-color: transparent;
+          border: 1.5px solid #002E70;
+          color: #002E70;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 0.15s, color 0.15s, transform 0.15s;
+        }
+        .swb-close-btn:hover {
+          background-color: #002E70;
+          color: #fff;
+          transform: scale(1.1);
+        }
+        .swb-close-btn:active {
+          background-color: #001e4a;
+          color: #fff;
+          transform: scale(0.94);
+        }
+      `}</style>
       <iframe
         src={blobUrl}
         style={{width: '100%', height: "100vh", border: 'none'}}
@@ -202,69 +261,90 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
 
-      {/* Time Difference Threshold Control */}
-      <Flex mt={3} p={4} bg="gray.50" borderRadius="md" borderWidth="1px" borderColor="gray.200" style={{
-        width: "100%",
-         position: "absolute",
-        left:"0",
-        justifyContent: "center",
-        justifyItems: "center",
-        bottom: "0"
+      {/* Floating gear button */}
+      <button
+        className="swb-gear-btn"
+        aria-label="Settings"
+        onClick={() => setSettingsOpen(true)}
+      >
+        <LuSettings size={22} />
+      </button>
 
-      }}  >
-        <Flex align="center" gap={4} wrap="wrap">
-          <Text fontWeight="bold" fontSize="sm" whiteSpace="nowrap">
-            Max allowed time difference:
-          </Text>
+      {/* Settings Modal */}
+      <Dialog.Root open={settingsOpen} onOpenChange={(e) => setSettingsOpen(e.open)} placement="center">
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content style={{ backgroundColor: "#fffff", color: "#002E70", borderRadius: "12px", padding: "24px", maxWidth: "480px" }}>
+              <Dialog.Header style={{ padding: 0, marginBottom: "16px" }}>
+                <Dialog.Title style={{ fontSize: "1.1rem", fontWeight: 700, color: "#002E70" }}>
+                  Playback Settings
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body style={{ padding: 0 }}>
+                <Flex direction="column" gap={4}>
+                  <Text fontWeight="bold" fontSize="sm" style={{ color: "#002E70" }}>
+                    Max allowed time difference:
+                  </Text>
 
-          <Box flex="1" minW="150px">
-            <Slider.Root
-              min={0}
-              max={3650}
-              step={1}
-              value={[currentDays]}
-              onValueChange={(details) => {
-                const days = details.value[0];
-                setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-              }}
-            >
-              <Slider.Control>
-                <Slider.Track>
-                  <Slider.Range/>
-                </Slider.Track>
-                <Slider.Thumb index={0}/>
-              </Slider.Control>
-            </Slider.Root>
-          </Box>
+                  <Box minW="150px">
+                    <Slider.Root
+                      min={0}
+                      max={3650}
+                      step={1}
+                      value={[currentDays]}
+                      onValueChange={(details) => {
+                        const days = details.value[0];
+                        setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+                      }}
+                    >
+                      <Slider.Control>
+                        <Slider.Track>
+                          <Slider.Range/>
+                        </Slider.Track>
+                        <Slider.Thumb index={0}/>
+                      </Slider.Control>
+                    </Slider.Root>
+                  </Box>
 
-          <NumberInput.Root
-            min={0}
-            max={3650}
-            step={1}
-            value={String(currentDays)}
-            onValueChange={(details) => {
-              const days = parseInt(details.value, 10);
-              if (!isNaN(days) && days >= 0) {
-                setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-              }
-            }}
-            w="90px"
-          >
-            <NumberInput.Control>
-              <NumberInput.IncrementTrigger/>
-              <NumberInput.DecrementTrigger/>
-            </NumberInput.Control>
-            <NumberInput.Input textAlign="center"/>
-          </NumberInput.Root>
+                  <Flex align="center" gap={3}>
+                    <NumberInput.Root
+                      min={0}
+                      max={3650}
+                      step={1}
+                      value={String(currentDays)}
+                      onValueChange={(details) => {
+                        const days = parseInt(details.value, 10);
+                        if (!isNaN(days) && days >= 0) {
+                          setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+                        }
+                      }}
+                      w="90px"
+                    >
+                      <NumberInput.Control>
+                        <NumberInput.IncrementTrigger/>
+                        <NumberInput.DecrementTrigger/>
+                      </NumberInput.Control>
+                      <NumberInput.Input textAlign="center"/>
+                    </NumberInput.Root>
+                    <Text fontSize="sm" style={{ color: "#002E70" }}>days</Text>
+                  </Flex>
 
-          <Text fontSize="sm" color="gray.600">days</Text>
-
-          <Text fontSize="xs" color="gray.500">
-            (Resources beyond this threshold are highlighted in{' '}
-            <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>)
-          </Text>
-        </Flex>
-      </Flex>
+                  <Text fontSize="xs" style={{ color: "#002E70", opacity: 0.7 }}>
+                    Resources beyond this threshold are highlighted in{' '}
+                    <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>
+                  </Text>
+                </Flex>
+              </Dialog.Body>
+              <Dialog.CloseTrigger asChild>
+                <button className="swb-close-btn" aria-label="Close">
+                  <LuX size={16} />
+                </button>
+              </Dialog.CloseTrigger>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </div>
   );
 };
