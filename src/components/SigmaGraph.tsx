@@ -129,14 +129,17 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     };
 
     const rootId = treeData.id || treeData.url;
+    const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
+    const rootDescendants = descendantCount.get(rootId) || 0;
+    const rootVisited = useSelectedNodes.getState().nodes.some((n) => n.id === rootId);
     graph.addNode(rootId, {
       x: 0,
       y: 0.5,
-      size: 5,
-      color: "#3b82f6",
-      borderColor: "#000000",
-      borderSize: 0.1,
-      label: "",
+      size: Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50),
+      color: rootLinks > 0 ? "#6b6a6a" : "#cbd5e1",
+      borderColor: rootVisited ? "#22c55e" : "#000000",
+      borderSize: rootVisited ? 0.5 : 0.1,
+      label: rootLinks > 0 ? `+${rootDescendants}` : "",
       url: treeData.url
     });
 
@@ -229,10 +232,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   }, []);
 
   const btnStyle: React.CSSProperties = {
-    width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center",
-    borderRadius: "6px", border: "1px solid #cbd5e1", backgroundColor: "#fff",
-    cursor: "pointer", fontSize: "16px", fontWeight: 700, color: "#475569",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+    width: "44px", height: "44px", display: "flex", alignItems: "center", justifyContent: "center",
+    borderRadius: "8px", border: "1px solid #cbd5e1", backgroundColor: "#fff",
+    cursor: "pointer", fontSize: "22px", fontWeight: 700, color: "#475569",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
   };
 
   return (

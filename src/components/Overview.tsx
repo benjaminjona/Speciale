@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDomainJsonDump } from "../api/useDomainJsonDump";
 import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
 import SigmaGraph from "./SigmaGraph.tsx";
-import { useSelectedNodes } from "../store/useSelectedNodes";
 
 export type JsonDataLink = {
   id: string;
@@ -14,28 +13,8 @@ export type JsonDataLink = {
   links: string[];
 };
 
-// Count total nodes and max depth from tree
-const getTreeStats = (node: any): { total: number; maxDepth: number; leafCount: number } => {
-  if (!node) return { total: 0, maxDepth: 0, leafCount: 0 };
-  let total = 1;
-  let maxDepth = 0;
-  let leafCount = 0;
-  if (Array.isArray(node.links) && node.links.length > 0) {
-    for (const child of node.links) {
-      const childStats = getTreeStats(child);
-      total += childStats.total;
-      maxDepth = Math.max(maxDepth, childStats.maxDepth + 1);
-      leafCount += childStats.leafCount;
-    }
-  } else {
-    leafCount = 1;
-  }
-  return { total, maxDepth, leafCount };
-};
-
 export const Overview = () => {
-  const [href, setHref] = useState<string | null>("http://www.kidpub.org/kidpub");
-  const { data, isLoading, isError } = useDomainJsonDump(href);
+  const { data, isLoading, isError } = useDomainJsonDump("http://www.kidpub.org/kidpub");
   const url = "http://www.kidpub.org:80/kidpub/";
   const wayback_date = 19970404180804;
   const domain = "kidpub.org";
@@ -45,8 +24,6 @@ export const Overview = () => {
     return buildTreeWithClosestMatch(data, url, wayback_date, domain);
   }, [data, url, wayback_date]);
 
-  const treeStats = useMemo(() => getTreeStats(treeData), [treeData]);
-
   return (
     <div style={{ padding: "16px", maxWidth: "100%", overflow: "hidden" }}>
       <div style={{
@@ -54,16 +31,6 @@ export const Overview = () => {
         marginBottom: "12px", flexWrap: "wrap", gap: "10px",
       }}>
         <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Overview of the domain</h1>
-        <button
-          onClick={() => setHref("http://www.kidpub.org/kidpub")}
-          style={{
-            padding: "6px 16px", borderRadius: "8px", border: "none",
-            backgroundColor: "#6366f1", color: "#fff", fontWeight: 600,
-            cursor: "pointer", fontSize: "13px",
-          }}
-        >
-          Fetch Resources for Kidlink
-        </button>
       </div>
 
       {isLoading && (
@@ -84,105 +51,8 @@ export const Overview = () => {
       )}
 
       {treeData && (
-        <>
-          {/* Summary stats */}
-          <div style={{
-            display: "flex", gap: "16px", marginBottom: "12px", flexWrap: "wrap",
-          }}>
-            {[
-              { label: "Total Pages", value: treeStats.total, color: "#6366f1" },
-              { label: "Max Depth", value: treeStats.maxDepth, color: "#0ea5e9" },
-              { label: "Leaf Pages", value: treeStats.leafCount, color: "#22c55e" },
-              { label: "Raw Records", value: data?.length ?? 0, color: "#f97316" },
-            ].map((s) => (
-              <div key={s.label} style={{
-                flex: "1 1 120px", padding: "10px 14px", borderRadius: "10px",
-                backgroundColor: "#f8fafc", border: "1px solid #e2e8f0",
-              }}>
-                <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  {s.label}
-                </div>
-                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: s.color }}>
-                  {s.value.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tip for large data */}
-          {treeStats.total > 100 && (
-            <div style={{
-              padding: "8px 14px", marginBottom: "10px", borderRadius: "8px",
-              backgroundColor: "#fffbeb", border: "1px solid #fde68a",
-              fontSize: "12px", color: "#92400e",
-            }}>
-              Large dataset detected ({treeStats.total.toLocaleString()} pages). Click grey collapsed nodes to expand branches on demand.
-            </div>
-          )}
-
-          <SigmaGraph treeData={treeData} domain={domain} />
-        </>
+        <SigmaGraph treeData={treeData} domain={domain} />
       )}
-
-      {/* Selected nodes list (synced across tabs via Zustand) */}
-      <SelectedNodesPanel />
-    </div>
-  );
-};
-
-const SelectedNodesPanel = () => {
-  const { nodes, removeNode, clearNodes } = useSelectedNodes();
-
-  if (nodes.length === 0) return null;
-
-  return (
-    <div style={{
-      marginTop: "16px", padding: "14px", borderRadius: "10px",
-      backgroundColor: "#f8fafc", border: "1px solid #e2e8f0",
-    }}>
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: "10px",
-      }}>
-        <span style={{ fontWeight: 700, fontSize: "14px", color: "#1e293b" }}>
-          Selected Nodes ({nodes.length})
-        </span>
-        <button
-          onClick={clearNodes}
-          style={{
-            padding: "4px 10px", borderRadius: "6px", border: "1px solid #e2e8f0",
-            backgroundColor: "#fff", fontSize: "12px", cursor: "pointer", color: "#64748b",
-          }}
-        >
-          Clear all
-        </button>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        {nodes.map((n) => (
-          <div
-            key={n.id}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "6px 10px", borderRadius: "6px", backgroundColor: "#fff",
-              border: "1px solid #e2e8f0", fontSize: "13px",
-            }}
-          >
-            <span style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
-              {n.url}
-            </span>
-            <button
-              onClick={() => removeNode(n.id)}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                color: "#94a3b8", fontSize: "16px", lineHeight: 1,
-              }}
-              title="Remove"
-            >
-              &times;
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
