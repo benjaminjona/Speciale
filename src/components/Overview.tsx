@@ -1,11 +1,7 @@
 import { useMemo, useState } from "react";
 import { useDomainJsonDump } from "../api/useDomainJsonDump";
 import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
-// import {DomainGraph} from "../components/DomainGraph.tsx";
-// import {ClusterBubbleGraph} from "../components/ClusterBubbleGraph.tsx";
-// import {CytoscapeDomainGraph} from "../components/CytoscapeDomainGraph.tsx";
 import SigmaGraph from "./SigmaGraph.tsx";
-import TreeMapComponent from "../components/TreeMapComponent.tsx";
 
 export type JsonDataLink = {
   id: string;
@@ -17,6 +13,25 @@ export type JsonDataLink = {
   links: string[];
 };
 
+// Count total nodes and max depth from tree
+const getTreeStats = (node: any): { total: number; maxDepth: number; leafCount: number } => {
+  if (!node) return { total: 0, maxDepth: 0, leafCount: 0 };
+  let total = 1;
+  let maxDepth = 0;
+  let leafCount = 0;
+  if (Array.isArray(node.links) && node.links.length > 0) {
+    for (const child of node.links) {
+      const childStats = getTreeStats(child);
+      total += childStats.total;
+      maxDepth = Math.max(maxDepth, childStats.maxDepth + 1);
+      leafCount += childStats.leafCount;
+    }
+  } else {
+    leafCount = 1;
+  }
+  return { total, maxDepth, leafCount };
+};
+
 export const Overview = () => {
   const [href, setHref] = useState<string | null>(null);
   const { data, isLoading, isError } = useDomainJsonDump(href);
@@ -25,33 +40,88 @@ export const Overview = () => {
   const domain = "kidpub.org";
 
   const treeData = useMemo(() => {
-    if (!data) return null; // wait until data is loaded
+    if (!data) return null;
     return buildTreeWithClosestMatch(data, url, wayback_date, domain);
   }, [data, url, wayback_date]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error loading data</div>;
-
-  console.log("Fetched data:", data?.length);
-  console.log("treeData:", treeData);
+  const treeStats = useMemo(() => getTreeStats(treeData), [treeData]);
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Overview</h1>
-      <button
-        onClick={() => setHref("http://www.kidpub.org/kidpub")}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-      >
-        Fetch Resources for Kidlink
-      </button>
-      {isLoading && <p>Loading...</p>}
-      {isError && <p>Error fetching data.</p>}
-      {/*{treeData && <DomainGraph treeData={treeData}/>}*/}
-      {/*{treeData &&<ClusterBubbleGraph treeData={treeData}/> }*/}
-      {/*{treeData && <CytoscapeDomainGraph treeData={treeData}/> }*/}
-      {/*{treeData && <SigmaClusterGraph treeData={treeData}/> }*/}
-      {treeData && <SigmaGraph treeData={treeData}/> }
-      {/*{treeData && <TreeMapComponent treeData={treeData}/> }*/}
+    <div style={{ padding: "16px", maxWidth: "100%", overflow: "hidden" }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: "12px", flexWrap: "wrap", gap: "10px",
+      }}>
+        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Site Structure Overview</h1>
+        <button
+          onClick={() => setHref("http://www.kidpub.org/kidpub")}
+          style={{
+            padding: "6px 16px", borderRadius: "8px", border: "none",
+            backgroundColor: "#6366f1", color: "#fff", fontWeight: 600,
+            cursor: "pointer", fontSize: "13px",
+          }}
+        >
+          Fetch Resources for Kidlink
+        </button>
+      </div>
+
+      {isLoading && (
+        <div style={{
+          padding: "40px", textAlign: "center", color: "#64748b",
+          backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0",
+        }}>
+          Loading domain data...
+        </div>
+      )}
+      {isError && (
+        <div style={{
+          padding: "16px", color: "#dc2626", backgroundColor: "#fef2f2",
+          borderRadius: "8px", border: "1px solid #fecaca",
+        }}>
+          Error fetching data. Please try again.
+        </div>
+      )}
+
+      {treeData && (
+        <>
+          {/* Summary stats */}
+          <div style={{
+            display: "flex", gap: "16px", marginBottom: "12px", flexWrap: "wrap",
+          }}>
+            {[
+              { label: "Total Pages", value: treeStats.total, color: "#6366f1" },
+              { label: "Max Depth", value: treeStats.maxDepth, color: "#0ea5e9" },
+              { label: "Leaf Pages", value: treeStats.leafCount, color: "#22c55e" },
+              { label: "Raw Records", value: data?.length ?? 0, color: "#f97316" },
+            ].map((s) => (
+              <div key={s.label} style={{
+                flex: "1 1 120px", padding: "10px 14px", borderRadius: "10px",
+                backgroundColor: "#f8fafc", border: "1px solid #e2e8f0",
+              }}>
+                <div style={{ fontSize: "11px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  {s.label}
+                </div>
+                <div style={{ fontSize: "1.3rem", fontWeight: 700, color: s.color }}>
+                  {s.value.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tip for large data */}
+          {treeStats.total > 100 && (
+            <div style={{
+              padding: "8px 14px", marginBottom: "10px", borderRadius: "8px",
+              backgroundColor: "#fffbeb", border: "1px solid #fde68a",
+              fontSize: "12px", color: "#92400e",
+            }}>
+              Large dataset detected ({treeStats.total.toLocaleString()} pages). Click grey collapsed nodes to expand branches on demand.
+            </div>
+          )}
+
+          <SigmaGraph treeData={treeData} />
+        </>
+      )}
     </div>
   );
 };
