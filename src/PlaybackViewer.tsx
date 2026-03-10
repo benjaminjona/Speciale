@@ -5,8 +5,11 @@ import {
   Text,
   Slider,
   NumberInput,
-  Dialog,
-  Portal,
+  PopoverRoot,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  PopoverCloseTrigger,
 } from '@chakra-ui/react';
 import { LuSettings, LuX } from 'react-icons/lu';
 
@@ -25,7 +28,7 @@ interface PlaybackViewerProps {
 const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunction}: PlaybackViewerProps) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [maxTimeDiffMs, setMaxTimeDiffMs] = useState<number>(30 * 24 * 60 * 60 * 1000);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const pageResourcesJson = JSON.stringify(pageResources);
 
   useEffect(() => {
@@ -200,10 +203,6 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
     <div className="playback-wrapper" style={{width: '100%', position:"relative"}}>
       <style>{`
         .swb-gear-btn {
-          position: fixed;
-          bottom: 24px;
-          right: 24px;
-          z-index: 1000;
           width: 48px;
           height: 48px;
           border-radius: 50%;
@@ -261,90 +260,104 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
       />
 
-      {/* Floating gear button */}
-      <button
-        className="swb-gear-btn"
-        aria-label="Settings"
-        onClick={() => setSettingsOpen(true)}
-      >
-        <LuSettings size={22} />
-      </button>
+      {/* Standalone gear button */}
+      {!popoverOpen && (
+        <button
+          className="swb-gear-btn"
+          aria-label="Settings"
+          onClick={() => setPopoverOpen(true)}
+          style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 1000 }}
+        >
+          <LuSettings size={22} />
+        </button>
+      )}
 
-      {/* Settings Modal */}
-      <Dialog.Root open={settingsOpen} onOpenChange={(e) => setSettingsOpen(e.open)} placement="center">
-        <Portal>
-          <Dialog.Backdrop />
-          <Dialog.Positioner>
-            <Dialog.Content style={{ backgroundColor: "#fffff", color: "#002E70", borderRadius: "12px", padding: "24px", maxWidth: "480px" }}>
-              <Dialog.Header style={{ padding: 0, marginBottom: "16px" }}>
-                <Dialog.Title style={{ fontSize: "1.1rem", fontWeight: 700, color: "#002E70" }}>
-                  Playback Settings
-                </Dialog.Title>
-              </Dialog.Header>
-              <Dialog.Body style={{ padding: 0 }}>
-                <Flex direction="column" gap={4}>
-                  <Text fontWeight="bold" fontSize="sm" style={{ color: "#002E70" }}>
-                    Max allowed time difference:
-                  </Text>
-
-                  <Box minW="150px">
-                    <Slider.Root
-                      min={0}
-                      max={3650}
-                      step={1}
-                      value={[currentDays]}
-                      onValueChange={(details) => {
-                        const days = details.value[0];
-                        setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-                      }}
-                    >
-                      <Slider.Control>
-                        <Slider.Track>
-                          <Slider.Range/>
-                        </Slider.Track>
-                        <Slider.Thumb index={0}/>
-                      </Slider.Control>
-                    </Slider.Root>
-                  </Box>
-
-                  <Flex align="center" gap={3}>
-                    <NumberInput.Root
-                      min={0}
-                      max={3650}
-                      step={1}
-                      value={String(currentDays)}
-                      onValueChange={(details) => {
-                        const days = parseInt(details.value, 10);
-                        if (!isNaN(days) && days >= 0) {
-                          setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
-                        }
-                      }}
-                      w="90px"
-                    >
-                      <NumberInput.Control>
-                        <NumberInput.IncrementTrigger/>
-                        <NumberInput.DecrementTrigger/>
-                      </NumberInput.Control>
-                      <NumberInput.Input textAlign="center"/>
-                    </NumberInput.Root>
-                    <Text fontSize="sm" style={{ color: "#002E70" }}>days</Text>
-                  </Flex>
-
-                  <Text fontSize="xs" style={{ color: "#002E70", opacity: 0.7 }}>
-                    Resources beyond this threshold are highlighted in{' '}
-                    <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>
-                  </Text>
-                </Flex>
-              </Dialog.Body>
-              <Dialog.CloseTrigger asChild>
-                <button className="swb-close-btn" aria-label="Close">
-                  <LuX size={16} />
+      {/* Settings popover */}
+      <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 1001 }}>
+        <PopoverRoot positioning={{ placement: "top-end" }} open={popoverOpen} onOpenChange={(e) => setPopoverOpen(e.open)}>
+          <PopoverTrigger asChild>
+            <span style={{ display: "none" }} />
+          </PopoverTrigger>
+          <PopoverContent style={{
+          backgroundColor: "#fff",
+          color: "#002E70",
+          borderRadius: "12px",
+          padding: "20px",
+          width: "360px",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+          border: "1px solid #e2e8f0",
+          marginBottom: "8px",
+          marginRight: "0px",
+        }}>
+          <PopoverBody style={{ padding: 0 }}>
+            <Flex align="center" justify="space-between" style={{ marginBottom: "14px" }}>
+              <Text style={{ fontSize: "1rem", fontWeight: 700, color: "#002E70" }}>
+                Playback Settings
+              </Text>
+              <PopoverCloseTrigger asChild>
+                <button className="swb-close-btn" aria-label="Close" style={{ position: "static" }}>
+                  <LuX size={14} />
                 </button>
-              </Dialog.CloseTrigger>
-            </Dialog.Content>
-          </Dialog.Positioner>
-        </Portal>
-      </Dialog.Root>
+              </PopoverCloseTrigger>
+            </Flex>
+
+            <Flex direction="column" gap={4}>
+              <Text fontWeight="bold" fontSize="sm" style={{ color: "#002E70" }}>
+                Max allowed time difference:
+              </Text>
+
+              <Box minW="150px">
+                <Slider.Root
+                  min={0}
+                  max={3650}
+                  step={1}
+                  value={[currentDays]}
+                  onValueChange={(details) => {
+                    const days = details.value[0];
+                    setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+                  }}
+                >
+                  <Slider.Control>
+                    <Slider.Track>
+                      <Slider.Range/>
+                    </Slider.Track>
+                    <Slider.Thumb index={0}/>
+                  </Slider.Control>
+                </Slider.Root>
+              </Box>
+
+              <Flex align="center" gap={3}>
+                <NumberInput.Root
+                  min={0}
+                  max={3650}
+                  step={1}
+                  value={String(currentDays)}
+                  onValueChange={(details) => {
+                    const days = parseInt(details.value, 10);
+                    if (!isNaN(days) && days >= 0) {
+                      setMaxTimeDiffMs(days * 24 * 60 * 60 * 1000);
+                    }
+                  }}
+                  w="90px"
+                >
+                  <NumberInput.Control>
+                    <NumberInput.IncrementTrigger/>
+                    <NumberInput.DecrementTrigger/>
+                  </NumberInput.Control>
+                  <NumberInput.Input textAlign="center"/>
+                </NumberInput.Root>
+                <Text fontSize="sm" style={{ color: "#002E70" }}>days</Text>
+              </Flex>
+
+              <Text fontSize="xs" style={{ color: "#002E70", opacity: 0.7 }}>
+                Resources beyond this threshold are highlighted in{' '}
+                <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>
+              </Text>
+            </Flex>
+          </PopoverBody>
+        </PopoverContent>
+        </PopoverRoot>
+      </div>
     </div>
   );
 };
