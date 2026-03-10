@@ -34,7 +34,7 @@ const getTreeStats = (node: any): { total: number; maxDepth: number; leafCount: 
 };
 
 export const Overview = () => {
-  const [href, setHref] = useState<string | null>(null);
+  const [href, setHref] = useState<string | null>("http://www.kidpub.org/kidpub");
   const { data, isLoading, isError } = useDomainJsonDump(href);
   const url = "http://www.kidpub.org:80/kidpub/";
   const wayback_date = 19970404180804;

@@ -99,18 +99,24 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
 
+          const isVisited = useSelectedNodes.getState().nodes.some((n) => n.id === childId);
+          const parentVisited = useSelectedNodes.getState().nodes.some((n) => n.id === nodeId);
+          const edgeGreen = isVisited && parentVisited;
           graph.addNode(childId, {
             x: px + X_GAP,
             y: py + yOffset,
             size: Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50),
             color: childLinks > 0 ? "#6b6a6a" : "#cbd5e1",
-            borderColor: "#000000",
-            borderSize: 0.1,
+            borderColor: isVisited ? "#22c55e" : "#000000",
+            borderSize: isVisited ? 0.5 : 0.1,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
           });
 
-          graph.addEdge(nodeId, childId, { size: 1, color: "#cbd5e1" });
+          graph.addEdge(nodeId, childId, {
+            size: edgeGreen ? 2.5 : 1,
+            color: edgeGreen ? "#22c55e" : "#cbd5e1",
+          });
 
           if (childLinks > 0 && childLinks < maxLinks) {
             processNode(childId, depth + 1, false);
@@ -166,12 +172,37 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       const url = graph.getNodeAttribute(node, "url") || node;
       useSelectedNodes.getState().addNode({ id: node, url });
 
-      // Highlight selected node
-      graph.setNodeAttribute(node, "borderColor", "#f59e0b");
+      // Highlight visited node in green
+      graph.setNodeAttribute(node, "borderColor", "#22c55e");
       graph.setNodeAttribute(node, "borderSize", 0.5);
+
+      // Color edges green between this node and any visited neighbour
+      const visited = new Set(useSelectedNodes.getState().nodes.map((n) => n.id));
+      graph.forEachEdge(node, (edge, _attrs, source, target) => {
+        const other = source === node ? target : source;
+        if (visited.has(other)) {
+          graph.setEdgeAttribute(edge, "color", "#22c55e");
+          graph.setEdgeAttribute(edge, "size", 2.5);
+        }
+      });
 
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       processNode(node, depth, true);
+    });
+
+    // Restore green borders and edges for previously visited nodes (persisted in localStorage)
+    const visitedIds = new Set(useSelectedNodes.getState().nodes.map((n) => n.id));
+    graph.forEachNode((nodeId) => {
+      if (visitedIds.has(nodeId)) {
+        graph.setNodeAttribute(nodeId, "borderColor", "#22c55e");
+        graph.setNodeAttribute(nodeId, "borderSize", 0.5);
+      }
+    });
+    graph.forEachEdge((edge, _attrs, source, target) => {
+      if (visitedIds.has(source) && visitedIds.has(target)) {
+        graph.setEdgeAttribute(edge, "color", "#22c55e");
+        graph.setEdgeAttribute(edge, "size", 2.5);
+      }
     });
 
     rendererRef.current = renderer;
