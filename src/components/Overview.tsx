@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDomainJsonDump } from "../api/useDomainJsonDump";
 import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
 import SigmaGraph from "./SigmaGraph.tsx";
+import { useSelectedNodes } from "../store/useSelectedNodes";
 
 export type JsonDataLink = {
   id: string;
@@ -122,6 +123,66 @@ export const Overview = () => {
           <SigmaGraph treeData={treeData} domain={domain} />
         </>
       )}
+
+      {/* Selected nodes list (synced across tabs via Zustand) */}
+      <SelectedNodesPanel />
+    </div>
+  );
+};
+
+const SelectedNodesPanel = () => {
+  const { nodes, removeNode, clearNodes } = useSelectedNodes();
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <div style={{
+      marginTop: "16px", padding: "14px", borderRadius: "10px",
+      backgroundColor: "#f8fafc", border: "1px solid #e2e8f0",
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: "10px",
+      }}>
+        <span style={{ fontWeight: 700, fontSize: "14px", color: "#1e293b" }}>
+          Selected Nodes ({nodes.length})
+        </span>
+        <button
+          onClick={clearNodes}
+          style={{
+            padding: "4px 10px", borderRadius: "6px", border: "1px solid #e2e8f0",
+            backgroundColor: "#fff", fontSize: "12px", cursor: "pointer", color: "#64748b",
+          }}
+        >
+          Clear all
+        </button>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        {nodes.map((n) => (
+          <div
+            key={n.id}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "6px 10px", borderRadius: "6px", backgroundColor: "#fff",
+              border: "1px solid #e2e8f0", fontSize: "13px",
+            }}
+          >
+            <span style={{ color: "#334155", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+              {n.url}
+            </span>
+            <button
+              onClick={() => removeNode(n.id)}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "#94a3b8", fontSize: "16px", lineHeight: 1,
+              }}
+              title="Remove"
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

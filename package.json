@@ -29,7 +29,8 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.13.1",
     "react-sigma": "^1.2.35",
-    "sigma": "^3.0.2"
+    "sigma": "^3.0.2",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",

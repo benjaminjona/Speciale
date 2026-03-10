@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
+import { useSelectedNodes } from "../store/useSelectedNodes";
 
 export type TreeLink = {
   id: string;
@@ -162,6 +163,13 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     });
 
     renderer.on("clickNode", ({ node }) => {
+      const url = graph.getNodeAttribute(node, "url") || node;
+      useSelectedNodes.getState().addNode({ id: node, url });
+
+      // Highlight selected node
+      graph.setNodeAttribute(node, "borderColor", "#f59e0b");
+      graph.setNodeAttribute(node, "borderSize", 0.5);
+
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       processNode(node, depth, true);
     });
