@@ -25,7 +25,7 @@ export const Overview = () => {
   }, [data, url, wayback_date]);
 
   return (
-    <div style={{ padding: "16px", maxWidth: "100%", overflow: "hidden" }}>
+    <div style={{ padding: "16px", maxWidth: "100%", overflow: "hidden", height: "100vh", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         marginBottom: "12px", flexWrap: "wrap", gap: "10px",

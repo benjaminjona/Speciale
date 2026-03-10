@@ -239,7 +239,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   };
 
   return (
-    <div style={{ position: "relative"}}>
+    <div style={{height:"100%", paddingBottom: "50px"}}>
       {/* Domain header bar */}
       {domain && (
         <div style={{
@@ -252,12 +252,12 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         </div>
       )}
 
-      <div style={{ position: "relative" }}>
+      <div style={{height:"100%" }}>
         <div
           ref={containerRef}
           style={{
             width: "100%",
-            height: "800px",
+            height: "100%",
             backgroundColor: "#f8fafc",
             borderRadius: "12px",
             border: "1px solid #e2e8f0",
