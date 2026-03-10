@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 export interface SelectedNode {
   id: string;
   url: string;
+  wayback_date?: number;
   addedAt: number;
 }
 

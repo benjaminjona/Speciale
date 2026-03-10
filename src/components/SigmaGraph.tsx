@@ -173,7 +173,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     renderer.on("clickNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url") || node;
-      useSelectedNodes.getState().addNode({ id: node, url });
+      const nodeData = dataMap.current.get(node);
+      const wayback_date = nodeData?.wayback_date;
+      useSelectedNodes.getState().addNode({ id: node, url, wayback_date });
 
       // Highlight visited node in green
       graph.setNodeAttribute(node, "borderColor", "#22c55e");

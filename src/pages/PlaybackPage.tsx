@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import PlaybackViewer from "../PlaybackViewer";
 import { toaster, Toaster } from "../src/components/ui/toaster";
 import { getSearchUrl, getTimeJumpToastDescription } from "../utils/util.ts";
+import { useSelectedNodes } from "../store/useSelectedNodes";
 
 interface PlaybackData {
   html: string;
@@ -88,6 +89,23 @@ const PlaybackPage = () => {
     if (sourceFilePath && offset) {
       getDivergentResources(sourceFilePath, Number(offset), true);
     }
+  }, []);
+
+  // Subscribe to Zustand store: navigate to latest selected node from Overview
+  useEffect(() => {
+    const unsubscribe = useSelectedNodes.subscribe((state, prevState) => {
+      if (state.nodes.length === 0) return;
+      if (state.nodes.length === prevState.nodes.length) return;
+      const latest = state.nodes[state.nodes.length - 1];
+      if (!latest.url) return;
+      if (latest.wayback_date) {
+        const playbackUrl = `/solrwayback/services/web/${latest.wayback_date}/${latest.url}`;
+        getPlaybackFunction(playbackUrl);
+      } else {
+        getPlaybackFunction(latest.url, true);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   return (
