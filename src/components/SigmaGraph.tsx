@@ -1,7 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
-// 1. Import the Border Program
 import { NodeBorderProgram } from "@sigma/node-border";
 
 export type TreeLink = {
@@ -13,12 +12,14 @@ export type TreeLink = {
 
 interface SigmaGraphProps {
   treeData: TreeLink;
+  domain?: string;
 }
 
-const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
+const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
   const graphRef = useRef<Graph>(new Graph({ type: "directed" }));
+  const rendererRef = useRef<Sigma | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || !treeData) return;
@@ -117,7 +118,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
 
     processNode(rootId, 0, true);
 
-    // 3. Register the NodeBorderProgram in Sigma settings
+    if (rendererRef.current) {
+      rendererRef.current.kill();
+      rendererRef.current = null;
+    }
+
     const renderer = new Sigma(graph, containerRef.current, {
       nodeProgramClasses: {
         circle: NodeBorderProgram,
@@ -144,21 +149,74 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
       processNode(node, depth, true);
     });
 
-    return () => renderer.kill();
+    rendererRef.current = renderer;
+
+    return () => {
+      renderer.kill();
+      rendererRef.current = null;
+    };
   }, [treeData]);
 
+  const handleZoomIn = useCallback(() => {
+    const camera = rendererRef.current?.getCamera();
+    if (camera) camera.animatedZoom({ duration: 200 });
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    const camera = rendererRef.current?.getCamera();
+    if (camera) camera.animatedUnzoom({ duration: 200 });
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    const camera = rendererRef.current?.getCamera();
+    if (camera) camera.animatedReset({ duration: 300 });
+  }, []);
+
+  const btnStyle: React.CSSProperties = {
+    width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center",
+    borderRadius: "6px", border: "1px solid #cbd5e1", backgroundColor: "#fff",
+    cursor: "pointer", fontSize: "16px", fontWeight: 700, color: "#475569",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  };
+
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: "800px",
-        backgroundColor: "#f8fafc",
-        borderRadius: "12px",
-        border: "1px solid #e2e8f0",
-        overflow: "hidden"
-      }}
-    />
+    <div style={{ position: "relative"}}>
+      {/* Domain header bar */}
+      {domain && (
+        <div style={{
+          padding: "6px 14px", marginBottom: "6px", borderRadius: "8px",
+          backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0",
+          display: "flex", alignItems: "center", gap: "8px",
+        }}>
+          <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Domain</span>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{domain}</span>
+        </div>
+      )}
+
+      <div style={{ position: "relative" }}>
+        <div
+          ref={containerRef}
+          style={{
+            width: "100%",
+            height: "800px",
+            backgroundColor: "#f8fafc",
+            borderRadius: "12px",
+            border: "1px solid #e2e8f0",
+            overflow: "hidden",
+          }}
+        />
+
+        {/* Zoom controls - bottom right */}
+        <div style={{
+          position: "absolute", bottom: "14px", right: "14px",
+          display: "flex", flexDirection: "column", gap: "4px",
+        }}>
+          <button onClick={handleZoomIn} style={btnStyle} title="Zoom in">+</button>
+          <button onClick={handleZoomOut} style={btnStyle} title="Zoom out">&minus;</button>
+          <button onClick={handleResetZoom} style={{ ...btnStyle, fontSize: "12px" }} title="Reset view">&#8634;</button>
+        </div>
+      </div>
+    </div>
   );
 };
 

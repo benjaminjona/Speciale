@@ -119,7 +119,7 @@ export const Overview = () => {
             </div>
           )}
 
-          <SigmaGraph treeData={treeData} />
+          <SigmaGraph treeData={treeData} domain={domain} />
         </>
       )}
     </div>
