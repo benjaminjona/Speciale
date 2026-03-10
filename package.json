@@ -12,7 +12,10 @@
   "dependencies": {
     "@chakra-ui/react": "^3.33.0",
     "@emotion/react": "^11.14.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/treemap": "^0.99.0",
     "@react-sigma/core": "^5.0.6",
+    "@sigma/node-border": "^3.0.0",
     "@sigma/node-image": "^3.0.0",
     "cytoscape": "^3.33.1",
     "graphology": "^0.26.0",

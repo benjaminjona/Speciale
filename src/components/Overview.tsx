@@ -5,6 +5,7 @@ import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
 // import {ClusterBubbleGraph} from "../components/ClusterBubbleGraph.tsx";
 // import {CytoscapeDomainGraph} from "../components/CytoscapeDomainGraph.tsx";
 import SigmaGraph from "./SigmaGraph.tsx";
+import TreeMapComponent from "../components/TreeMapComponent.tsx";
 
 export type JsonDataLink = {
   id: string;
@@ -50,6 +51,7 @@ export const Overview = () => {
       {/*{treeData && <CytoscapeDomainGraph treeData={treeData}/> }*/}
       {/*{treeData && <SigmaClusterGraph treeData={treeData}/> }*/}
       {treeData && <SigmaGraph treeData={treeData}/> }
+      {/*{treeData && <TreeMapComponent treeData={treeData}/> }*/}
     </div>
   );
 };

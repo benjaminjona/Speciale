@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
+// 1. Import the Border Program
+import { NodeBorderProgram } from "@sigma/node-border";
 
 export type TreeLink = {
   id: string;
@@ -33,6 +35,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
     mapData(treeData);
 
     const X_GAP = 0.6;
+    const maxLinks = 5;
 
     const processNode = (nodeId: string, depth: number, force: boolean = false) => {
       const item = dataMap.current.get(nodeId);
@@ -40,7 +43,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
 
       const linkCount = item.links.length;
 
-      // COLLAPSE LOGIK: Hvis vi klikker på en node der allerede ER udfoldet
       const firstChildId = item.links[0]?.id || item.links[0]?.url;
       if (force && firstChildId && graph.hasNode(firstChildId)) {
         const removeRecursive = (id: string) => {
@@ -56,14 +58,12 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
           }
         };
         removeRecursive(nodeId);
-        // Reset label og farve til "expandable" tilstand
-        graph.setNodeAttribute(nodeId, "color", linkCount > 20 ? "#fbbf24" : "#3b82f6");
-        graph.setNodeAttribute(nodeId, "label", linkCount > 20 ? `+${linkCount}` : "");
+        graph.setNodeAttribute(nodeId, "color", linkCount > maxLinks ? "#6b6a6a" : "#cbd5e1");
+        graph.setNodeAttribute(nodeId, "label", linkCount > maxLinks ? `+${linkCount}` : "");
         return;
       }
 
-      // EXPAND LOGIK
-      const shouldExpand = force || (linkCount > 0 && linkCount < 20);
+      const shouldExpand = force || (linkCount > 0 && linkCount < maxLinks);
 
       if (shouldExpand) {
         const px = graph.getNodeAttribute(nodeId, "x");
@@ -83,31 +83,45 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
             x: px + X_GAP,
             y: py + yOffset,
             size: 5 + Math.sqrt(childLinks),
-            color: childLinks > 20 ? "#fbbf24" : "#3b82f6",
-            label: childLinks > 20 ? `+${childLinks}` : "",
+            color: childLinks > maxLinks ? "#6b6a6a" : "#cbd5e1",
+            // 2. Add border attributes here
+            borderColor: "#000000",
+            borderSize: 0.1,
+            label: childLinks > maxLinks ? `+${childLinks}` : "",
             url: child.url
           });
 
           graph.addEdge(nodeId, childId, { size: 1, color: "#cbd5e1" });
 
-          // Auto-expand rekursivt for små grene
-          if (childLinks > 0 && childLinks < 20) {
+          if (childLinks > 0 && childLinks < maxLinks) {
             processNode(childId, depth + 1, false);
           }
         });
 
-        // Opdater forældre-node visuelt
         graph.setNodeAttribute(nodeId, "label", "");
-        graph.setNodeAttribute(nodeId, "color", "#3b82f6");
+        graph.setNodeAttribute(nodeId, "color", "#cbd5e1");
       }
     };
 
-    // Initialize root
     const rootId = treeData.id || treeData.url;
-    graph.addNode(rootId, { x: 0, y: 0.5, size: 10, color: "#3b82f6", label: "", url: treeData.url });
+    graph.addNode(rootId, {
+      x: 0,
+      y: 0.5,
+      size: 10,
+      color: "#3b82f6",
+      borderColor: "#000000", // Darker blue border
+      borderSize: 0.1,
+      label: "",
+      url: treeData.url
+    });
+
     processNode(rootId, 0, true);
 
+    // 3. Register the NodeBorderProgram in Sigma settings
     const renderer = new Sigma(graph, containerRef.current, {
+      nodeProgramClasses: {
+        circle: NodeBorderProgram,
+      },
       renderLabels: true,
       labelSize: 11,
       labelWeight: "bold",
@@ -115,7 +129,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
       zIndex: true,
     });
 
-    // Hover handler: Vis URL som label
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
       graph.setNodeAttribute(node, "savedLabel", graph.getNodeAttribute(node, "label"));
@@ -126,7 +139,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
       graph.setNodeAttribute(node, "label", graph.getNodeAttribute(node, "savedLabel") || "");
     });
 
-    // Click handler: Expand eller Collapse
     renderer.on("clickNode", ({ node }) => {
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       processNode(node, depth, true);
@@ -141,7 +153,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData }) => {
       style={{
         width: "100%",
         height: "800px",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#f8fafc",
         borderRadius: "12px",
         border: "1px solid #e2e8f0",
         overflow: "hidden"

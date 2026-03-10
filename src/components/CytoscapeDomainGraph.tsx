@@ -35,7 +35,7 @@ export const CytoscapeDomainGraph = ({ treeData }: { treeData: TreeLink }) => {
       }
 
       if (node.links) {
-        node.links.forEach((child) => traverse(child, node.url));
+        node.links.forEach((child:any) => traverse(child, node.url));
       }
     };
 
