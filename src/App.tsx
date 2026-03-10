@@ -58,7 +58,7 @@ function App() {
           }}
           style={{ color: "#6366f1", textDecoration: "underline", cursor: "pointer" }}
         >
-          open Site Structure Overview
+          open Overview 
         </a>
       </p>
 

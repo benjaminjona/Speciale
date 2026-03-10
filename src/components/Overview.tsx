@@ -52,7 +52,7 @@ export const Overview = () => {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         marginBottom: "12px", flexWrap: "wrap", gap: "10px",
       }}>
-        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Site Structure Overview</h1>
+        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Overview of the domain</h1>
         <button
           onClick={() => setHref("http://www.kidpub.org/kidpub")}
           style={{

@@ -11,7 +11,7 @@ import {
   PopoverBody,
   PopoverCloseTrigger,
 } from '@chakra-ui/react';
-import { LuSettings, LuX } from 'react-icons/lu';
+import { LuSettings, LuX, LuNetwork } from 'react-icons/lu';
 
 interface PlaybackViewerProps {
   htmlContent: string | null;
@@ -252,6 +252,30 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
           color: #fff;
           transform: scale(0.94);
         }
+        .swb-overview-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 8px;
+          border: 1.5px solid #002E70;
+          background-color: transparent;
+          color: #002E70;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          transition: background-color 0.15s, color 0.15s, transform 0.1s;
+        }
+        .swb-overview-btn:hover {
+          background-color: #002E70;
+          color: #fff;
+        }
+        .swb-overview-btn:active {
+          background-color: #001e4a;
+          color: #fff;
+          transform: scale(0.97);
+        }
       `}</style>
       <iframe
         src={blobUrl}
@@ -353,6 +377,14 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
                 Resources beyond this threshold are highlighted in{' '}
                 <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>
               </Text>
+
+              <button
+                className="swb-overview-btn"
+                onClick={() => window.open("/overview", "_blank")}
+              >
+                <LuNetwork size={16} />
+                Overview of the domain
+              </button>
             </Flex>
           </PopoverBody>
         </PopoverContent>
