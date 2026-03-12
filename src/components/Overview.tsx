@@ -7,9 +7,7 @@ export type JsonDataLink = {
   id: string;
   wayback_date: number;
   url_norm: string;
-  url_path: string;
   url: string;
-  domain: string;
   links: string[];
 };
 

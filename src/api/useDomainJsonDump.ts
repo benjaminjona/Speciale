@@ -14,7 +14,7 @@ const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   params.append("fq", 'content_type_norm:"html"');
   params.append(
     "fields",
-    "wayback_date,url,url_path,url_norm,domain,links,id,source_file_path,source_file_offset",
+    "wayback_date,url,url_norm,domain,links,id,source_file_path,source_file_offset",
   );
   params.append("flatten", "false");
   params.append("format", "json");

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
-import { useSelectedNodes } from "../store/useSelectedNodes";
+import { usePersistentStore } from "../store/usePersistentStore.ts";
 
 export type TreeLink = {
   id: string;
@@ -99,8 +99,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
 
-          const isVisited = useSelectedNodes.getState().nodes.some((n) => n.id === childId);
-          const parentVisited = useSelectedNodes.getState().nodes.some((n) => n.id === nodeId);
+          const isVisited = usePersistentStore.getState().nodes.some((n) => n.id === childId);
+          const parentVisited = usePersistentStore.getState().nodes.some((n) => n.id === nodeId);
           const edgeGreen = isVisited && parentVisited;
           graph.addNode(childId, {
             x: px + X_GAP,
@@ -122,16 +122,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             processNode(childId, depth + 1, false);
           }
         });
-
         graph.setNodeAttribute(nodeId, "label", "");
-        graph.setNodeAttribute(nodeId, "color", "#cbd5e1");
       }
     };
 
     const rootId = treeData.id || treeData.url;
     const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
     const rootDescendants = descendantCount.get(rootId) || 0;
-    const rootVisited = useSelectedNodes.getState().nodes.some((n) => n.id === rootId);
+    const rootVisited = usePersistentStore.getState().nodes.some((n) => n.id === rootId);
     graph.addNode(rootId, {
       x: 0,
       y: 0.5,
@@ -175,14 +173,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       const url = graph.getNodeAttribute(node, "url") || node;
       const nodeData = dataMap.current.get(node);
       const wayback_date = nodeData?.wayback_date;
-      useSelectedNodes.getState().addNode({ id: node, url, wayback_date });
+      usePersistentStore.getState().addNode({ id: node, url, wayback_date });
 
       // Highlight visited node in green
       graph.setNodeAttribute(node, "borderColor", "#22c55e");
       graph.setNodeAttribute(node, "borderSize", 0.5);
 
       // Color edges green between this node and any visited neighbour
-      const visited = new Set(useSelectedNodes.getState().nodes.map((n) => n.id));
+      const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
       graph.forEachEdge(node, (edge, _attrs, source, target) => {
         const other = source === node ? target : source;
         if (visited.has(other)) {
@@ -196,7 +194,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     });
 
     // Restore green borders and edges for previously visited nodes (persisted in localStorage)
-    const visitedIds = new Set(useSelectedNodes.getState().nodes.map((n) => n.id));
+    const visitedIds = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
     graph.forEachNode((nodeId) => {
       if (visitedIds.has(nodeId)) {
         graph.setNodeAttribute(nodeId, "borderColor", "#22c55e");

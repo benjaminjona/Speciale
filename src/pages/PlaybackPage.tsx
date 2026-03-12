@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import PlaybackViewer from "../PlaybackViewer";
 import { toaster, Toaster } from "../src/components/ui/toaster";
 import { getSearchUrl, getTimeJumpToastDescription } from "../utils/util.ts";
-import { useSelectedNodes } from "../store/useSelectedNodes";
+import { usePersistentStore } from "../store/usePersistentStore.ts";
 
 interface PlaybackData {
   html: string;
@@ -16,7 +16,6 @@ const PlaybackPage = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [divergentPageResources, setDivergentPageResources] = useState(null);
-  const [baseCrawlTime, setBaseCrawlTime] = useState<number | null>(null);
 
   const getPlaybackFunction = async (url: string, isFromIFrame?: boolean) => {
     setLoading(true);
@@ -31,7 +30,14 @@ const PlaybackPage = () => {
       if (isFromIFrame) getDivergentResourcesFromView(finalUrl);
       setPlaybackData({ html: htmlText, baseUrl: finalUrl });
     } catch (err: any) {
-      setError("Playback Error: " + err.message);
+      toaster.create({
+        title: "Page not found",
+        description: "",
+        type: "error",
+        closable: true,
+        duration: 5000,
+      })
+
     } finally {
       setLoading(false);
     }
@@ -44,15 +50,18 @@ const PlaybackPage = () => {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      const pageCrawlDate: number = data?.pageCrawlDate;
+      const pageCrawlDate = data?.pageCrawlDate ?? null;
+      const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
-      if (setBaseDate) setBaseCrawlTime(pageCrawlDate || null);
+      if (setBaseDate) usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate);
       if (!setBaseDate && pageCrawlDate !== baseCrawlTime) {
         const description = getTimeJumpToastDescription(pageCrawlDate, baseCrawlTime);
         toaster.create({
           title: "Time jump detected!",
           description: description,
-          type: "warning",
+          type: "error",
+          closable: true,
+          duration: 5000,
         });
       }
     } catch (err) {
@@ -93,7 +102,7 @@ const PlaybackPage = () => {
 
   // Subscribe to Zustand store: navigate to latest selected node from Overview
   useEffect(() => {
-    const unsubscribe = useSelectedNodes.subscribe((state, prevState) => {
+    const unsubscribe = usePersistentStore.subscribe((state, prevState) => {
       if (state.nodes.length === 0) return;
       if (state.nodes.length === prevState.nodes.length) return;
       const latest = state.nodes[state.nodes.length - 1];
@@ -111,13 +120,13 @@ const PlaybackPage = () => {
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <Toaster />
-      {loading && <div style={{ padding: "20px" }}>Loading playback...</div>}
+      {/*{loading && <div style={{ padding: "20px" }}>Loading playback...</div>}*/}
       {error && <div style={{ padding: "20px", color: "red" }}>{error}</div>}
       {playbackData ? (
         <div style={{ flex: 1 }}>
-          <div style={{ padding: "4px 10px", fontSize: "12px", color: "#666" }}>
-            {playbackData.baseUrl}
-          </div>
+          {/*<div style={{ padding: "4px 10px", fontSize: "12px", color: "#666" }}>*/}
+          {/*  {playbackData.baseUrl}*/}
+          {/*</div>*/}
           <PlaybackViewer
             getPlaybackFunction={getPlaybackFunction}
             htmlContent={playbackData.html}

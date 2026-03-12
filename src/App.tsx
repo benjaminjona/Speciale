@@ -36,35 +36,17 @@ function App() {
       offset: String(doc.source_file_offset ?? ""),
     });
     window.open(`/playback?${params.toString()}`, "_blank");
-    window.open("/overview", "_blank");
   };
 
-  const openOverview = () => {
-    window.open("/overview", "_blank");
-  };
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px" }}>
       <h1 style={{ fontSize: "1.8rem", fontWeight: 700, marginBottom: "8px" }}>
         SolrWayback Search
       </h1>
-      <p style={{ color: "#666", marginBottom: "24px" }}>
-        Search the web archive, or{" "}
-        <a
-          href="/overview"
-          onClick={(e) => {
-            e.preventDefault();
-            openOverview();
-          }}
-          style={{ color: "#6366f1", textDecoration: "underline", cursor: "pointer" }}
-        >
-          open Overview 
-        </a>
-      </p>
-
       <Search onSubmit={(value) => handleSearch(value)} />
 
-      {error && <div style={{ color: "red", marginTop: "12px" }}>{error}</div>}
+      {/*{error && <div style={{ color: "red", marginTop: "12px" }}>{error}</div>}*/}
 
       {searchResults.length > 0 && (
         <div style={{ marginTop: "24px" }}>
