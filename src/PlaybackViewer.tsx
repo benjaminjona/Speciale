@@ -89,6 +89,10 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
           const allImages = document.querySelectorAll('img');
           const theImage = Array.from(allImages).find(img => img.src === imgSrc);
+          const toolbar = document.querySelector('#tegModal');
+          
+          //remove the toolbar !!
+          if(toolbar) toolbar.remove();
           
           if (theImage) {
               // Use outline (doesn't affect layout) instead of border/wrapper
@@ -128,6 +132,7 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
     });
         console.log("-----------------------------------------");
 
+         
         // Intercept clicks on all <a> tags and forward href to parent
         document.addEventListener("click", function(e) {
           var anchor = e.target.closest ? e.target.closest("a") : null;
@@ -199,8 +204,25 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
   // Convert ms to days for the UI
   const currentDays = Math.round(maxTimeDiffMs / (24 * 60 * 60 * 1000));
 
+  const currentDate = pageResources?.pageCrawlDate ? new Date(pageResources.pageCrawlDate) : null;
+
   return (
     <div className="playback-wrapper" style={{width: '100%', position:"relative"}}>
+      <div style={{
+         position: "absolute",
+         top: "6px",
+         right: "6px",
+         backgroundColor: "#002E70",
+         fontSize: "10px",
+        boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+
+        borderRadius: "4px",
+         padding: "4px 8px",
+         color: "#fff",
+      }}>
+        {currentDate?.toLocaleString() }
+      </div>
+
       <style>{`
         .swb-gear-btn {
           width: 48px;

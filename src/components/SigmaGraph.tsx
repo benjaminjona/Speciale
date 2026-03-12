@@ -107,7 +107,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             y: py + yOffset,
             size: Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50),
             color: childLinks > 0 ? "#6b6a6a" : "#cbd5e1",
-            borderColor: isVisited ? "#22c55e" : "#000000",
+            borderColor: isVisited ? "#002E70" : "#000000",
             borderSize: isVisited ? 0.5 : 0.1,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
@@ -115,7 +115,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
           graph.addEdge(nodeId, childId, {
             size: edgeGreen ? 2.5 : 1,
-            color: edgeGreen ? "#22c55e" : "#cbd5e1",
+            color: edgeGreen ? "#002E70" : "#cbd5e1",
           });
 
           if (childLinks > 0 && childLinks < maxLinks) {
@@ -135,7 +135,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       y: 0.5,
       size: Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50),
       color: rootLinks > 0 ? "#6b6a6a" : "#cbd5e1",
-      borderColor: rootVisited ? "#22c55e" : "#000000",
+      borderColor: rootVisited ? "#002E70" : "#000000",
       borderSize: rootVisited ? 0.5 : 0.1,
       label: rootLinks > 0 ? `+${rootDescendants}` : "",
       url: treeData.url
@@ -176,7 +176,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       usePersistentStore.getState().addNode({ id: node, url, wayback_date });
 
       // Highlight visited node in green
-      graph.setNodeAttribute(node, "borderColor", "#22c55e");
+      graph.setNodeAttribute(node, "borderColor", "#002E70");
       graph.setNodeAttribute(node, "borderSize", 0.5);
 
       // Color edges green between this node and any visited neighbour
@@ -184,7 +184,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       graph.forEachEdge(node, (edge, _attrs, source, target) => {
         const other = source === node ? target : source;
         if (visited.has(other)) {
-          graph.setEdgeAttribute(edge, "color", "#22c55e");
+          graph.setEdgeAttribute(edge, "color", "#002E70");
           graph.setEdgeAttribute(edge, "size", 2.5);
         }
       });
@@ -197,13 +197,13 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const visitedIds = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
     graph.forEachNode((nodeId) => {
       if (visitedIds.has(nodeId)) {
-        graph.setNodeAttribute(nodeId, "borderColor", "#22c55e");
+        graph.setNodeAttribute(nodeId, "borderColor", "#002E70");
         graph.setNodeAttribute(nodeId, "borderSize", 0.5);
       }
     });
     graph.forEachEdge((edge, _attrs, source, target) => {
       if (visitedIds.has(source) && visitedIds.has(target)) {
-        graph.setEdgeAttribute(edge, "color", "#22c55e");
+        graph.setEdgeAttribute(edge, "color", "#002E70");
         graph.setEdgeAttribute(edge, "size", 2.5);
       }
     });

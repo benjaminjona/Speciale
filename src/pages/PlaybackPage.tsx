@@ -107,9 +107,11 @@ const PlaybackPage = () => {
       if (state.nodes.length === prevState.nodes.length) return;
       const latest = state.nodes[state.nodes.length - 1];
       if (!latest.url) return;
+      console.log(latest.wayback_date, )
       if (latest.wayback_date) {
         const playbackUrl = `/solrwayback/services/web/${latest.wayback_date}/${latest.url}`;
-        getPlaybackFunction(playbackUrl);
+        console.log(playbackUrl)
+        getPlaybackFunction(playbackUrl,true);
       } else {
         getPlaybackFunction(latest.url, true);
       }
@@ -133,6 +135,7 @@ const PlaybackPage = () => {
             baseUrl={playbackData.baseUrl}
             pageResources={divergentPageResources}
           />
+
         </div>
       ) : (
         !loading && (

@@ -4,12 +4,12 @@ import SearchResult from "./components/SearchResult.tsx";
 import { SolrDoc } from "./types.ts";
 
 function App() {
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SolrDoc[]>([]);
 
   const handleSearch = async (query: string) => {
     if (!query) return;
-    setError(null);
+    // setError(null);
     setSearchResults([]);
     try {
       const searchUrl = `/solrwayback/services/frontend/solr/search/results/?query=${encodeURIComponent(query)}&grouping=false`;
@@ -24,7 +24,7 @@ function App() {
         setSearchResults([]);
       }
     } catch (err: any) {
-      setError("Search Error: " + err.message);
+      // setError("Search Error: " + err.message);
     }
   };
 
@@ -40,7 +40,7 @@ function App() {
 
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px" }}>
+    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "40px 20px", fontFamily: "Pixelify Sans"  }}>
       <h1 style={{ fontSize: "1.8rem", fontWeight: 700, marginBottom: "8px" }}>
         SolrWayback Search
       </h1>
