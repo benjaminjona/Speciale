@@ -200,8 +200,29 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     // Prevent Sigma's built-in double-click zoom
     renderer.on("doubleClickNode", (e) => {
-      e.preventSigmaDefault(); // ← stops the camera zoom
-      const url = graph.getNodeAttribute(e.node, "url") || e.node;
+      e.preventSigmaDefault();
+      // Cancel any pending single-click action
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      const node = e.node;
+      const url = graph.getNodeAttribute(node, "url") || node;
+
+      // Demote previous current node
+      const prevCurrent = currentNodeRef.current;
+      if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
+        const prevData = dataMap.current.get(prevCurrent);
+        const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
+        graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
+        graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
+        graph.setNodeAttribute(prevCurrent, "zIndex", 0);
+      }
+
+      currentNodeRef.current = url;
+      // Skip expansion in the nodes useEffect – double-click only marks visited
+      skipExpansionRef.current = true;
       usePersistentStore.getState().addNode({ url });
     });
 
@@ -216,41 +237,20 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = null;
 
-        const url = graph.getNodeAttribute(node, "url") || node;
-
-        const prevCurrent = currentNodeRef.current;
-        if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
-          const prevData = dataMap.current.get(prevCurrent);
-          const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
-          graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
-          graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
-          graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
-          graph.setNodeAttribute(prevCurrent, "zIndex", 0);
-        }
-
-        currentNodeRef.current = url;
-        graph.setNodeAttribute(node, "color", COLORS.current);
-        graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
-        graph.setNodeAttribute(node, "borderSize", 0.3);
-        graph.setNodeAttribute(node, "zIndex", 10);
-
-        const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
-        graph.forEachEdge(node, (edge, _attrs, source, target) => {
-          const other = source === node ? target : source;
-          if (visited.has(other)) {
-            graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
-            graph.setEdgeAttribute(edge, "size", 2.5);
-          }
-        });
-
         const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
-        skipExpansionRef.current = true;
+        
+        // We only expand/collapse the node. We don't mark it as visited (that happens on double click).
         processNode(node, depth, true);
 
-        graph.setNodeAttribute(node, "color", COLORS.current);
-        graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
-        graph.setNodeAttribute(node, "borderSize", 0.3);
-        graph.setNodeAttribute(node, "zIndex", 10);
+        // If this happens to be the currently active node, make sure we retain its current styling
+        // because processNode might reset it.
+        const url = graph.getNodeAttribute(node, "url") || node;
+        if (currentNodeRef.current === url) {
+          graph.setNodeAttribute(node, "color", COLORS.current);
+          graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
+          graph.setNodeAttribute(node, "borderSize", 0.3);
+          graph.setNodeAttribute(node, "zIndex", 10);
+        }
       }, 250);
     });
 
