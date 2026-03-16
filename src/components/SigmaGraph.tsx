@@ -255,6 +255,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     const container = containerRef.current!;
     const onMouseMove = (e: MouseEvent) => {
+
       if (tooltipRef.current && tooltipRef.current.style.display !== "none") {
         const rect = container.getBoundingClientRect();
         tooltipRef.current.style.left = `${e.clientX - rect.left + 14}px`;
@@ -269,6 +270,38 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       rendererRef.current = null;
     };
   }, [treeData]);
+
+  // Re-apply visited colours whenever nodes change (e.g. updated by PlaybackViewer)
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || graph.order === 0) return;
+
+    const visitedUrls = new Set(nodes.map((n) => n.url));
+
+    graph.forEachNode((nodeUrl) => {
+      const isCurrent = nodeUrl === currentNodeRef.current;
+      if (isCurrent) return; // keep current-node styling intact
+      if (visitedUrls.has(nodeUrl)) {
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.3);
+      } else {
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.unvisitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.0001);
+      }
+    });
+
+    graph.forEachEdge((edge, _attrs, source, target) => {
+      if (visitedUrls.has(source) && visitedUrls.has(target)) {
+        graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
+        graph.setEdgeAttribute(edge, "size", 2.5);
+      } else {
+        graph.setEdgeAttribute(edge, "color", COLORS.edgeUnvisited);
+        graph.setEdgeAttribute(edge, "size", 1);
+      }
+    });
+
+    rendererRef.current?.refresh();
+  }, [nodes]);
 
   const handleZoomIn = useCallback(() => {
     const camera = rendererRef.current?.getCamera();
