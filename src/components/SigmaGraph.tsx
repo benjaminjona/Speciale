@@ -18,13 +18,12 @@ interface SigmaGraphProps {
 
 // Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
 const COLORS = {
-  expandable:      "#5B9BD5", // medium blue      – unvisited, has children
-  leaf:            "#E8F2FB", // near-white blue  – unvisited leaf
-  current:         "#FF6600", // vivid orange     – YOU ARE HERE
-  visited:         "#002E70", // brand navy      – visited non-current node (fill)
-  visitedBorder:   "#004AAD", // mid navy        – ring on any visited node
+  expandable:      "#5B9BD5", // medium blue      – has children
+  leaf:            "#E8F2FB", // near-white blue  – no children
+  current:         "#6f1078", // vivid orange     – YOU ARE HERE
+  visitedBorder:   "#ca0bf5", // mid navy        – ring on any visited node
   unvisitedBorder: "#C8DCF0", // muted blue-grey – hairline border on unvisited
-  edgeVisited:     "#004AAD", // brand navy      – traversed path
+  edgeVisited:     "#ca0bf5", // brand navy      – traversed path
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
 };
 // ────────────────────────────────────────────────────────────────────────────
@@ -93,12 +92,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         removeRecursive(nodeId);
         const desc = descendantCount.get(nodeId) || 0;
         const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
-        const isCur = currentNodeRef.current === nodeId;
         const isVis = visitedSet.has(nodeId);
-        graph.setNodeAttribute(nodeId, "color", isVis ? COLORS.visited : COLORS.expandable);
+        graph.setNodeAttribute(nodeId, "color", COLORS.expandable);
         graph.setNodeAttribute(nodeId, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
         graph.setNodeAttribute(nodeId, "borderSize", isVis ? 0.3 : 0.0001);
-        if (isCur) graph.setNodeAttribute(nodeId, "color", COLORS.current);
         graph.setNodeAttribute(nodeId, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
@@ -124,14 +121,13 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           const isVisited = visitedNow.has(childId);
           const parentVisited = visitedNow.has(nodeId);
           const edgeHighlighted = isVisited && parentVisited;
-          const isCurChild = currentNodeRef.current === childId;
           graph.addNode(childId, {
             x: px + X_GAP,
             y: py + yOffset,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
             borderColor: isVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
             borderSize: isVisited ? 0.3 : 0.0001,
-            color: isCurChild ? COLORS.current : isVisited ? COLORS.visited : childLinks > 0 ? COLORS.expandable : COLORS.leaf,
+            color: childLinks > 0 ? COLORS.expandable : COLORS.leaf,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
           });
@@ -145,8 +141,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             processNode(childId, depth + 1, false);
           }
         });
-        const parentIsVisited = usePersistentStore.getState().nodes.some((n) => n.id === nodeId);
-        graph.setNodeAttribute(nodeId, "color", parentIsVisited ? COLORS.visited : COLORS.expandable);
+        graph.setNodeAttribute(nodeId, "color", COLORS.expandable);
         graph.setNodeAttribute(nodeId, "label", "");
       }
     };
@@ -159,7 +154,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       x: 0,
       y: 0.5,
       size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
-      color: rootVisited ? COLORS.visited : rootLinks > 0 ? COLORS.expandable : COLORS.leaf,
+      color: rootLinks > 0 ? COLORS.expandable : COLORS.leaf,
       borderColor: rootVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
       borderSize: rootVisited ? 0.3 : 0.0001,
       label: rootLinks > 0 ? `+${rootDescendants}` : "",
@@ -205,13 +200,15 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       // Demote previous current node back to its correct non-current colours
       const prevCurrent = currentNodeRef.current;
       if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
+        const prevData = dataMap.current.get(prevCurrent);
+        const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
+        graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
         graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
         graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
         graph.setNodeAttribute(prevCurrent, "zIndex", 0);
-        graph.setNodeAttribute(prevCurrent, "color", COLORS.visited);
       }
 
-      // Mark this node as current – solid purple fill, float to top
+      // Mark this node as current – float to top
       currentNodeRef.current = node;
       graph.setNodeAttribute(node, "color", COLORS.current);
       graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
@@ -231,7 +228,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       processNode(node, depth, true);
 
-      // Restore purple fill + top z-index after processNode
+      // Restore fill + top z-index after processNode
       graph.setNodeAttribute(node, "color", COLORS.current);
       graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
       graph.setNodeAttribute(node, "borderSize", 0.3);
@@ -242,7 +239,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const visitedIds = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
     graph.forEachNode((nodeId) => {
       if (visitedIds.has(nodeId)) {
-        graph.setNodeAttribute(nodeId, "color", COLORS.visited);
         graph.setNodeAttribute(nodeId, "borderColor", COLORS.visitedBorder);
         graph.setNodeAttribute(nodeId, "borderSize", 0.3);
       }
@@ -369,7 +365,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           ))}
           <div style={{ borderTop: "1px solid #E2E8F0", margin: "2px 0" }} />
           <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: COLORS.visited, border: `1.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
+            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: COLORS.expandable, border: `2.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
             <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>Visited</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
