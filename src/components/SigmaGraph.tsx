@@ -226,6 +226,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       usePersistentStore.getState().addNode({ url });
     });
 
+    // Also prevent double click zoom on the stage (background)
+    renderer.on("doubleClickStage", (e) => {
+      e.preventSigmaDefault();
+    });
+
     renderer.on("clickNode", ({ node }) => {
       // Debounce: cancel if a second click arrives within 250ms (i.e. it's a double-click)
       if (clickTimerRef.current) {
