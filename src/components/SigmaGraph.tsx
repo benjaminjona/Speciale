@@ -16,11 +16,26 @@ interface SigmaGraphProps {
   domain?: string;
 }
 
+// ─── Colour palette ───────────────────────────────────────────────────────────
+const COLORS = {
+  collapsed:       "#3B82F6", // blue        – has children, not yet expanded
+  expanded:        "#CBD5E1", // light grey  – expanded or leaf (same neutral)
+  leaf:            "#CBD5E1", // light grey  – same as expanded
+  current:         "#FF1A1A", // bright red  – YOU ARE HERE (thick border + bigger node)
+  visitedBorder:   "#ca0bf5", // purple      – border on any visited node
+  unvisitedBorder: "#CBD5E1", // light grey  – border on unvisited nodes
+  edgeVisited:     "#ca0bf5", // purple      – edge on visited path
+  edgeUnvisited:   "#D1D5DB", // light grey  – edge not yet traversed
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
   const graphRef = useRef<Graph>(new Graph({ type: "directed" }));
   const rendererRef = useRef<Sigma | null>(null);
+  const currentNodeRef = useRef<string | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current || !treeData) return;
@@ -77,7 +92,12 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         };
         removeRecursive(nodeId);
         const desc = descendantCount.get(nodeId) || 0;
-        graph.setNodeAttribute(nodeId, "color", linkCount > 0 ? "#6b6a6a" : "#cbd5e1");
+        const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
+        const isCur = currentNodeRef.current === nodeId;
+        const isVis = visitedSet.has(nodeId);
+        graph.setNodeAttribute(nodeId, "color", COLORS.collapsed);
+        graph.setNodeAttribute(nodeId, "borderColor", isCur ? COLORS.current : isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
+        graph.setNodeAttribute(nodeId, "borderSize", isCur ? 0.85 : isVis ? 0.3 : 0.05);
         graph.setNodeAttribute(nodeId, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
@@ -99,29 +119,32 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
 
-          const isVisited = usePersistentStore.getState().nodes.some((n) => n.id === childId);
-          const parentVisited = usePersistentStore.getState().nodes.some((n) => n.id === nodeId);
-          const edgeGreen = isVisited && parentVisited;
+          const visitedNow = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
+          const isVisited = visitedNow.has(childId);
+          const parentVisited = visitedNow.has(nodeId);
+          const edgeHighlighted = isVisited && parentVisited;
+          const isCurChild = currentNodeRef.current === childId;
           graph.addNode(childId, {
             x: px + X_GAP,
             y: py + yOffset,
-            size: Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50),
-            color: childLinks > 0 ? "#6b6a6a" : "#cbd5e1",
-            borderColor: isVisited ? "#002E70" : "#000000",
-            borderSize: isVisited ? 0.5 : 0.1,
+            size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
+            color: childLinks > 0 ? COLORS.collapsed : COLORS.leaf,
+            borderColor: isCurChild ? COLORS.current : isVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
+            borderSize: isCurChild ? 0.85 : isVisited ? 0.3 : 0.05,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
           });
 
           graph.addEdge(nodeId, childId, {
-            size: edgeGreen ? 2.5 : 1,
-            color: edgeGreen ? "#002E70" : "#cbd5e1",
+            size: edgeHighlighted ? 2.5 : 1,
+            color: edgeHighlighted ? COLORS.edgeVisited : COLORS.edgeUnvisited,
           });
 
           if (childLinks > 0 && childLinks < maxLinks) {
             processNode(childId, depth + 1, false);
           }
         });
+        graph.setNodeAttribute(nodeId, "color", COLORS.expanded);
         graph.setNodeAttribute(nodeId, "label", "");
       }
     };
@@ -133,10 +156,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     graph.addNode(rootId, {
       x: 0,
       y: 0.5,
-      size: Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50),
-      color: rootLinks > 0 ? "#6b6a6a" : "#cbd5e1",
-      borderColor: rootVisited ? "#002E70" : "#000000",
-      borderSize: rootVisited ? 0.5 : 0.1,
+      size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
+      color: rootLinks > 0 ? COLORS.collapsed : COLORS.leaf,
+      borderColor: rootVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
+      borderSize: rootVisited ? 0.3 : 0.05,
       label: rootLinks > 0 ? `+${rootDescendants}` : "",
       url: treeData.url
     });
@@ -161,12 +184,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
-      graph.setNodeAttribute(node, "savedLabel", graph.getNodeAttribute(node, "label"));
-      graph.setNodeAttribute(node, "label", url);
+      if (tooltipRef.current) {
+        tooltipRef.current.textContent = url;
+        tooltipRef.current.style.display = "block";
+      }
     });
 
-    renderer.on("leaveNode", ({ node }) => {
-      graph.setNodeAttribute(node, "label", graph.getNodeAttribute(node, "savedLabel") || "");
+    renderer.on("leaveNode", () => {
+      if (tooltipRef.current) tooltipRef.current.style.display = "none";
     });
 
     renderer.on("clickNode", ({ node }) => {
@@ -175,42 +200,74 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       const wayback_date = nodeData?.wayback_date;
       usePersistentStore.getState().addNode({ id: node, url, wayback_date });
 
-      // Highlight visited node in green
-      graph.setNodeAttribute(node, "borderColor", "#002E70");
-      graph.setNodeAttribute(node, "borderSize", 0.5);
+      // Demote previous current node back to its correct non-current colours
+      const prevCurrent = currentNodeRef.current;
+      if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
+        graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
+        graph.setNodeAttribute(prevCurrent, "zIndex", 0);
+        const prevNd = dataMap.current.get(prevCurrent);
+        const prevHasChildren = Array.isArray(prevNd?.links) && prevNd!.links.length > 0;
+        const prevFirstChildId = prevNd?.links?.[0]?.id || prevNd?.links?.[0]?.url;
+        const prevExpanded = !!(prevFirstChildId && graph.hasNode(prevFirstChildId));
+        graph.setNodeAttribute(prevCurrent, "color", !prevHasChildren ? COLORS.leaf : prevExpanded ? COLORS.expanded : COLORS.collapsed);
+      }
 
-      // Color edges green between this node and any visited neighbour
+      // Mark this node as current – thick red border only, float to top
+      currentNodeRef.current = node;
+      graph.setNodeAttribute(node, "borderColor", COLORS.current);
+      graph.setNodeAttribute(node, "borderSize", 0.85);
+      graph.setNodeAttribute(node, "zIndex", 10);
+
+      // Highlight edges along the visited path
       const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
       graph.forEachEdge(node, (edge, _attrs, source, target) => {
         const other = source === node ? target : source;
         if (visited.has(other)) {
-          graph.setEdgeAttribute(edge, "color", "#002E70");
+          graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
           graph.setEdgeAttribute(edge, "size", 2.5);
         }
       });
 
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       processNode(node, depth, true);
+
+      // Restore red border + top z-index after processNode (which may reset node attrs)
+      graph.setNodeAttribute(node, "borderColor", COLORS.current);
+      graph.setNodeAttribute(node, "borderSize", 0.85);
+      graph.setNodeAttribute(node, "zIndex", 10);
     });
 
-    // Restore green borders and edges for previously visited nodes (persisted in localStorage)
+    // Restore visited state for previously visited nodes (persisted in localStorage)
     const visitedIds = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
     graph.forEachNode((nodeId) => {
       if (visitedIds.has(nodeId)) {
-        graph.setNodeAttribute(nodeId, "borderColor", "#002E70");
-        graph.setNodeAttribute(nodeId, "borderSize", 0.5);
+        graph.setNodeAttribute(nodeId, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(nodeId, "borderSize", 0.3);
+        // Fill is NOT changed – it indicates expanded state only
       }
     });
     graph.forEachEdge((edge, _attrs, source, target) => {
       if (visitedIds.has(source) && visitedIds.has(target)) {
-        graph.setEdgeAttribute(edge, "color", "#002E70");
+        graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
         graph.setEdgeAttribute(edge, "size", 2.5);
       }
     });
 
     rendererRef.current = renderer;
 
+    const container = containerRef.current!;
+    const onMouseMove = (e: MouseEvent) => {
+      if (tooltipRef.current && tooltipRef.current.style.display !== "none") {
+        const rect = container.getBoundingClientRect();
+        tooltipRef.current.style.left = `${e.clientX - rect.left + 14}px`;
+        tooltipRef.current.style.top = `${e.clientY - rect.top - 36}px`;
+      }
+    };
+    container.addEventListener("mousemove", onMouseMove);
+
     return () => {
+      container.removeEventListener("mousemove", onMouseMove);
       renderer.kill();
       rendererRef.current = null;
     };
@@ -252,18 +309,74 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         </div>
       )}
 
-      <div style={{height:"100%" }}>
+      <div style={{ height: "100%", position: "relative" }}>
         <div
           ref={containerRef}
           style={{
             width: "100%",
             height: "100%",
-            backgroundColor: "#f8fafc",
+            backgroundColor: "#EEF4FF",
             borderRadius: "12px",
-            border: "1px solid #e2e8f0",
+            border: "1px solid #BFDBFE",
             overflow: "hidden",
           }}
         />
+
+        {/* URL tooltip on hover */}
+        <div
+          ref={tooltipRef}
+          style={{
+            display: "none",
+            position: "absolute",
+            pointerEvents: "none",
+            backgroundColor: "rgba(15, 23, 42, 0.88)",
+            color: "#f8fafc",
+            padding: "4px 9px",
+            borderRadius: "5px",
+            fontSize: "11px",
+            maxWidth: "300px",
+            wordBreak: "break-all",
+            zIndex: 10,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          }}
+        />
+
+        {/* Legend – top-left */}
+        <div style={{
+          position: "absolute", top: "10px", left: "10px",
+          backgroundColor: "rgba(255,255,255,0.90)",
+          backdropFilter: "blur(6px)",
+          border: "1px solid #BFDBFE",
+          borderRadius: "8px",
+          padding: "8px 10px",
+          display: "flex", flexDirection: "column", gap: "5px",
+          pointerEvents: "none",
+          boxShadow: "0 1px 4px rgba(0,46,112,0.08)",
+        }}>
+          {([
+            { color: COLORS.collapsed, border: COLORS.unvisitedBorder, label: "Expandable" },
+            { color: COLORS.expanded,  border: COLORS.unvisitedBorder, label: "Expanded / leaf" },
+          ] as { color: string; border: string; label: string }[]).map(({ color, border, label }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+              <div style={{
+                width: 11, height: 11, borderRadius: "50%",
+                backgroundColor: color,
+                border: `1.5px solid ${border}`,
+                flexShrink: 0,
+              }} />
+              <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>{label}</span>
+            </div>
+          ))}
+          <div style={{ borderTop: "1px solid #E2E8F0", margin: "2px 0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: "#fff", border: `2.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
+            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>Visited</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: "transparent", border: `3px solid ${COLORS.current}`, flexShrink: 0 }} />
+            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>You are here</span>
+          </div>
+        </div>
 
         {/* Zoom controls - bottom right */}
         <div style={{
