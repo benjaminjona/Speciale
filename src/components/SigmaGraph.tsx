@@ -200,6 +200,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
       // Demote previous current node back to its correct non-current colours
       const prevCurrent = currentNodeRef.current;
+
       if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
         const prevData = dataMap.current.get(prevCurrent);
         const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
@@ -210,7 +211,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       }
 
       // Mark this node as current – float to top
-      currentNodeRef.current = node;
+      // currentNodeRef.current = node;
+      currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
+
       graph.setNodeAttribute(node, "color", COLORS.current);
       graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
       graph.setNodeAttribute(node, "borderSize", 0.3);
@@ -255,6 +258,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     const container = containerRef.current!;
     const onMouseMove = (e: MouseEvent) => {
+
       if (tooltipRef.current && tooltipRef.current.style.display !== "none") {
         const rect = container.getBoundingClientRect();
         tooltipRef.current.style.left = `${e.clientX - rect.left + 14}px`;
@@ -269,6 +273,59 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       rendererRef.current = null;
     };
   }, [treeData]);
+
+  // Re-apply visited colours whenever nodes change (e.g. updated by PlaybackViewer)
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || graph.order === 0) return;
+
+    const visitedUrls = new Set(nodes.map((n) => n.url));
+    // const lastVisited = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
+    const prevCurrent = currentNodeRef.current;
+    currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
+
+
+    graph.forEachNode((nodeUrl) => {
+      const isCurrent = nodeUrl === currentNodeRef.current;
+      if (prevCurrent && prevCurrent !== nodeUrl && graph.hasNode(prevCurrent)) {
+        const prevData = dataMap.current.get(prevCurrent);
+        const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
+        graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
+        graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
+        graph.setNodeAttribute(prevCurrent, "zIndex", 0);
+      }
+      // const depth = Math.round(graph.getNodeAttribute(nodeUrl, "x") / X_GAP);
+      // processNode(node, depth, true);
+
+      if (isCurrent) {
+        graph.setNodeAttribute(nodeUrl, "color", COLORS.current);
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.3);
+        graph.setNodeAttribute(nodeUrl, "zIndex", 10);
+        return;
+      }
+      if (visitedUrls.has(nodeUrl)) {
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.3);
+      } else {
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.unvisitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.0001);
+      }
+    });
+
+    graph.forEachEdge((edge, _attrs, source, target) => {
+      if (visitedUrls.has(source) && visitedUrls.has(target)) {
+        graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
+        graph.setEdgeAttribute(edge, "size", 2.5);
+      } else {
+        graph.setEdgeAttribute(edge, "color", COLORS.edgeUnvisited);
+        graph.setEdgeAttribute(edge, "size", 1);
+      }
+    });
+
+    rendererRef.current?.refresh();
+  }, [nodes]);
 
   const handleZoomIn = useCallback(() => {
     const camera = rendererRef.current?.getCamera();
