@@ -321,19 +321,34 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     // Dynamically expand the current node (skip if click already handled it).
     // Only expand – never toggle/collapse – from this path.
     const currentUrl = currentNodeRef.current;
-    if (currentUrl && graph.hasNode(currentUrl) && processNodeRef.current && !skipExpansionRef.current) {
-      const item = dataMap.current.get(currentUrl);
-      const firstChildUrl = Array.isArray(item?.links) ? item!.links[0]?.url : null;
-      const alreadyExpanded = !!firstChildUrl && graph.hasNode(firstChildUrl);
-      if (!alreadyExpanded) {
-        const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
-        processNodeRef.current(currentUrl, depth, true);
+    if (currentUrl && processNodeRef.current && !skipExpansionRef.current) {
+      // If the current node isn't in the graph yet (e.g. navigation from PlaybackViewer),
+      // try expanding the previous current node (its parent) to bring it into the graph.
+      if (!graph.hasNode(currentUrl) && prevCurrent && graph.hasNode(prevCurrent)) {
+        const prevItem = dataMap.current.get(prevCurrent);
+        const firstPrevChild = Array.isArray(prevItem?.links) ? prevItem!.links[0]?.url : null;
+        const prevAlreadyExpanded = !!firstPrevChild && graph.hasNode(firstPrevChild);
+        if (!prevAlreadyExpanded) {
+          const depth = Math.round(graph.getNodeAttribute(prevCurrent, "x") / X_GAP);
+          processNodeRef.current(prevCurrent, depth, true);
+        }
       }
-      // Always re-apply current styling (processNode may have overridden color)
-      graph.setNodeAttribute(currentUrl, "color", COLORS.current);
-      graph.setNodeAttribute(currentUrl, "borderColor", COLORS.visitedBorder);
-      graph.setNodeAttribute(currentUrl, "borderSize", 0.3);
-      graph.setNodeAttribute(currentUrl, "zIndex", 10);
+
+      if (graph.hasNode(currentUrl)) {
+        // Expand current node's children if not already expanded
+        const item = dataMap.current.get(currentUrl);
+        const firstChildUrl = Array.isArray(item?.links) ? item!.links[0]?.url : null;
+        const alreadyExpanded = !!firstChildUrl && graph.hasNode(firstChildUrl);
+        if (!alreadyExpanded) {
+          const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
+          processNodeRef.current(currentUrl, depth, true);
+        }
+        // Always re-apply current styling (processNode may have overridden color)
+        graph.setNodeAttribute(currentUrl, "color", COLORS.current);
+        graph.setNodeAttribute(currentUrl, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(currentUrl, "borderSize", 0.3);
+        graph.setNodeAttribute(currentUrl, "zIndex", 10);
+      }
     }
     skipExpansionRef.current = false;
 
