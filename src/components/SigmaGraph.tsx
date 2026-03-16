@@ -23,8 +23,8 @@ const COLORS = {
   current:         "#FF6600", // vivid orange     – YOU ARE HERE
   visited:         "#002E70", // brand navy      – visited non-current node (fill)
   visitedBorder:   "#004AAD", // mid navy        – ring on any visited node
-  unvisitedBorder: "#8BAAC8", // muted blue-grey – hairline border on unvisited
-  edgeVisited:     "#002E70", // brand navy      – traversed path
+  unvisitedBorder: "#C8DCF0", // muted blue-grey – hairline border on unvisited
+  edgeVisited:     "#004AAD", // brand navy      – traversed path
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
 };
 // ────────────────────────────────────────────────────────────────────────────
