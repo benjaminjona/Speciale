@@ -182,7 +182,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       labelWeight: "bold",
       labelColor: { color: "#1e293b" },
       zIndex: true,
-      autoRescale: false,
     });
 
     renderer.on("enterNode", ({ node }) => {
@@ -284,10 +283,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const graph = graphRef.current;
     if (!graph || graph.order === 0) return;
 
-    // Freeze camera for the entire effect – prevent sigma coordinate-renormalization
-    // from shifting the viewport when nodes are added or removed.
-    const camState = rendererRef.current?.getCamera().getState();
-
     const visitedUrls = new Set(nodes.map((n) => n.url));
     const prevCurrent = currentNodeRef.current;
     currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
@@ -353,9 +348,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     });
 
     rendererRef.current?.refresh();
-    // Restore camera after refresh so sigma's coordinate renormalization
-    // doesn't shift the viewport.
-    if (camState) rendererRef.current?.getCamera().setState(camState);
   }, [nodes]);
 
   const handleZoomIn = useCallback(() => {
