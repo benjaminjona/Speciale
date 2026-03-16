@@ -39,6 +39,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const processNodeRef = useRef<((nodeUrl: string, depth: number, force?: boolean) => void) | null>(null);
   const skipExpansionRef = useRef(false);
   const nodes = usePersistentStore((state) => state.nodes);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || !treeData) return;
@@ -196,51 +197,61 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       if (tooltipRef.current) tooltipRef.current.style.display = "none";
     });
 
-    renderer.on("clickNode", ({ node }) => {
-      const url = graph.getNodeAttribute(node, "url") || node;
-      // const nodeData = dataMap.current.get(node);
-      // const wayback_date = nodeData?.wayback_date;
+
+    // Prevent Sigma's built-in double-click zoom
+    renderer.on("doubleClickNode", (e) => {
+      e.preventSigmaDefault(); // ← stops the camera zoom
+      const url = graph.getNodeAttribute(e.node, "url") || e.node;
       usePersistentStore.getState().addNode({ url });
+    });
 
-      // Demote previous current node back to its correct non-current colours
-      const prevCurrent = currentNodeRef.current;
-
-      if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
-        const prevData = dataMap.current.get(prevCurrent);
-        const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
-        graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
-        graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
-        graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
-        graph.setNodeAttribute(prevCurrent, "zIndex", 0);
+    renderer.on("clickNode", ({ node }) => {
+      // Debounce: cancel if a second click arrives within 250ms (i.e. it's a double-click)
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+        return;
       }
 
-      // Mark this node as current – float to top
-      currentNodeRef.current = url;
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
 
-      graph.setNodeAttribute(node, "color", COLORS.current);
-      graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
-      graph.setNodeAttribute(node, "borderSize", 0.3);
-      graph.setNodeAttribute(node, "zIndex", 10);
+        const url = graph.getNodeAttribute(node, "url") || node;
 
-      // Highlight edges along the visited path
-      const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
-      graph.forEachEdge(node, (edge, _attrs, source, target) => {
-        const other = source === node ? target : source;
-        if (visited.has(other)) {
-          graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
-          graph.setEdgeAttribute(edge, "size", 2.5);
+        const prevCurrent = currentNodeRef.current;
+        if (prevCurrent && prevCurrent !== node && graph.hasNode(prevCurrent)) {
+          const prevData = dataMap.current.get(prevCurrent);
+          const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
+          graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
+          graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
+          graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
+          graph.setNodeAttribute(prevCurrent, "zIndex", 0);
         }
-      });
 
-      const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
-      skipExpansionRef.current = true;
-      processNode(node, depth, true);
+        currentNodeRef.current = url;
+        graph.setNodeAttribute(node, "color", COLORS.current);
+        graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(node, "borderSize", 0.3);
+        graph.setNodeAttribute(node, "zIndex", 10);
 
-      // Restore fill + top z-index after processNode
-      graph.setNodeAttribute(node, "color", COLORS.current);
-      graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
-      graph.setNodeAttribute(node, "borderSize", 0.3);
-      graph.setNodeAttribute(node, "zIndex", 10);
+        const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
+        graph.forEachEdge(node, (edge, _attrs, source, target) => {
+          const other = source === node ? target : source;
+          if (visited.has(other)) {
+            graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
+            graph.setEdgeAttribute(edge, "size", 2.5);
+          }
+        });
+
+        const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
+        skipExpansionRef.current = true;
+        processNode(node, depth, true);
+
+        graph.setNodeAttribute(node, "color", COLORS.current);
+        graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(node, "borderSize", 0.3);
+        graph.setNodeAttribute(node, "zIndex", 10);
+      }, 250);
     });
 
     // Restore visited state for previously visited nodes (persisted in localStorage)
@@ -272,6 +283,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     container.addEventListener("mousemove", onMouseMove);
 
     return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current); // ← add this
       container.removeEventListener("mousemove", onMouseMove);
       renderer.kill();
       rendererRef.current = null;
