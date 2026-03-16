@@ -182,6 +182,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       labelWeight: "bold",
       labelColor: { color: "#1e293b" },
       zIndex: true,
+      autoRescale: false,
     });
 
     renderer.on("enterNode", ({ node }) => {
@@ -234,9 +235,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       skipExpansionRef.current = true;
-      const camState = renderer.getCamera().getState();
       processNode(node, depth, true);
-      renderer.getCamera().setState(camState);
 
       // Restore fill + top z-index after processNode
       graph.setNodeAttribute(node, "color", COLORS.current);
@@ -285,6 +284,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const graph = graphRef.current;
     if (!graph || graph.order === 0) return;
 
+    // Freeze camera for the entire effect – prevent sigma coordinate-renormalization
+    // from shifting the viewport when nodes are added or removed.
+    const camState = rendererRef.current?.getCamera().getState();
+
     const visitedUrls = new Set(nodes.map((n) => n.url));
     const prevCurrent = currentNodeRef.current;
     currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
@@ -320,12 +323,18 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       }
     });
 
-    // Dynamically expand the current node (skip if click already handled it)
+    // Dynamically expand the current node (skip if click already handled it).
+    // Only expand – never toggle/collapse – from this path.
     const currentUrl = currentNodeRef.current;
     if (currentUrl && graph.hasNode(currentUrl) && processNodeRef.current && !skipExpansionRef.current) {
-      const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
-      processNodeRef.current(currentUrl, depth, true);
-      // Re-apply current styling after processNode may have overridden it
+      const item = dataMap.current.get(currentUrl);
+      const firstChildUrl = Array.isArray(item?.links) ? item!.links[0]?.url : null;
+      const alreadyExpanded = !!firstChildUrl && graph.hasNode(firstChildUrl);
+      if (!alreadyExpanded) {
+        const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
+        processNodeRef.current(currentUrl, depth, true);
+      }
+      // Always re-apply current styling (processNode may have overridden color)
       graph.setNodeAttribute(currentUrl, "color", COLORS.current);
       graph.setNodeAttribute(currentUrl, "borderColor", COLORS.visitedBorder);
       graph.setNodeAttribute(currentUrl, "borderSize", 0.3);
@@ -344,6 +353,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     });
 
     rendererRef.current?.refresh();
+    // Restore camera after refresh so sigma's coordinate renormalization
+    // doesn't shift the viewport.
+    if (camState) rendererRef.current?.getCamera().setState(camState);
   }, [nodes]);
 
   const handleZoomIn = useCallback(() => {
