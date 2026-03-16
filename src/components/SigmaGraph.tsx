@@ -97,7 +97,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         const desc = descendantCount.get(nodeUrl) || 0;
         const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
         const isVis = visitedSet.has(nodeUrl);
-        graph.setNodeAttribute(nodeUrl, "color", COLORS.expandable);
+        graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
         graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
         graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : 0.0001);
         graph.setNodeAttribute(nodeUrl, "label", linkCount > 0 ? `+${desc}` : "");
@@ -145,7 +145,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             processNode(childUrl, depth + 1, false);
           }
         });
-        graph.setNodeAttribute(nodeUrl, "color", COLORS.expandable);
+        graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
         graph.setNodeAttribute(nodeUrl, "label", "");
       }
     };
@@ -183,6 +183,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       labelWeight: "bold",
       labelColor: { color: "#1e293b" },
       zIndex: true,
+      // Provide a fixed zooming ratio for double clicks so it does not zoom at all
+      doubleClickZoomingRatio: 1,
     });
 
     renderer.on("enterNode", ({ node }) => {
