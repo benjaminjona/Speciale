@@ -35,6 +35,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const rendererRef = useRef<Sigma | null>(null);
   const currentNodeRef = useRef<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const nodes = usePersistentStore((state) => state.nodes);
 
   useEffect(() => {
     if (!containerRef.current || !treeData) return;
@@ -44,8 +45,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     dataMap.current.clear();
 
     const mapData = (item: TreeLink) => {
-      const id = item.id || item.url;
-      dataMap.current.set(id, item);
+      const url = item.url;
+      dataMap.current.set(url, item);
       if (Array.isArray(item.links)) item.links.forEach(mapData);
     };
     mapData(treeData);
@@ -53,15 +54,15 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     // Pre-compute total descendant count for each node (recursive)
     const descendantCount = new Map<string, number>();
     const countDescendants = (item: TreeLink): number => {
-      const id = item.id || item.url;
-      if (descendantCount.has(id)) return descendantCount.get(id)!;
+      const url =  item.url;
+      if (descendantCount.has(url)) return descendantCount.get(url)!;
       let count = 0;
       if (Array.isArray(item.links)) {
         for (const child of item.links) {
           count += 1 + countDescendants(child);
         }
       }
-      descendantCount.set(id, count);
+      descendantCount.set(url, count);
       return count;
     };
     countDescendants(treeData);
@@ -69,59 +70,59 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const X_GAP = 0.6;
     const maxLinks = 1;
 
-    const processNode = (nodeId: string, depth: number, force: boolean = false) => {
-      const item = dataMap.current.get(nodeId);
+    const processNode = (nodeUrl: string, depth: number, force: boolean = false) => {
+      const item = dataMap.current.get(nodeUrl);
       if (!item || !Array.isArray(item.links)) return;
 
       const linkCount = item.links.length;
 
-      const firstChildId = item.links[0]?.id || item.links[0]?.url;
-      if (force && firstChildId && graph.hasNode(firstChildId)) {
-        const removeRecursive = (id: string) => {
-          const nodeData = dataMap.current.get(id);
+      const firstChildUrl = item.links[0]?.url;
+      if (force && firstChildUrl && graph.hasNode(firstChildUrl)) {
+        const removeRecursive = (url: string) => {
+          const nodeData = dataMap.current.get(url);
           if (nodeData && Array.isArray(nodeData.links)) {
             nodeData.links.forEach((child: any) => {
-              const cId = child.id || child.url;
-              if (graph.hasNode(cId)) {
-                removeRecursive(cId);
-                graph.dropNode(cId);
+              const url = child.url;
+              if (graph.hasNode(url)) {
+                removeRecursive(url);
+                graph.dropNode(url);
               }
             });
           }
         };
-        removeRecursive(nodeId);
-        const desc = descendantCount.get(nodeId) || 0;
-        const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
-        const isVis = visitedSet.has(nodeId);
-        graph.setNodeAttribute(nodeId, "color", COLORS.expandable);
-        graph.setNodeAttribute(nodeId, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
-        graph.setNodeAttribute(nodeId, "borderSize", isVis ? 0.3 : 0.0001);
-        graph.setNodeAttribute(nodeId, "label", linkCount > 0 ? `+${desc}` : "");
+        removeRecursive(nodeUrl);
+        const desc = descendantCount.get(nodeUrl) || 0;
+        const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
+        const isVis = visitedSet.has(nodeUrl);
+        graph.setNodeAttribute(nodeUrl, "color", COLORS.expandable);
+        graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : 0.0001);
+        graph.setNodeAttribute(nodeUrl, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
 
       const shouldExpand = force || (linkCount > 0 && linkCount < maxLinks);
 
       if (shouldExpand) {
-        const px = graph.getNodeAttribute(nodeId, "x");
-        const py = graph.getNodeAttribute(nodeId, "y");
+        const px = graph.getNodeAttribute(nodeUrl, "x");
+        const py = graph.getNodeAttribute(nodeUrl, "y");
         const spread = 1.0 / Math.pow(depth + 1, 0.7);
 
         item.links.forEach((child: TreeLink, index: number) => {
-          const childId = child.id || child.url;
-          if (!childId || graph.hasNode(childId)) return;
+          const childUrl = child.url;
+          if (!childUrl || graph.hasNode(childUrl)) return;
 
           const childLinks = Array.isArray(child.links) ? child.links.length : 0;
-          const totalDescendants = descendantCount.get(childId) || 0;
+          const totalDescendants = descendantCount.get(childUrl) || 0;
           const yOffset = item.links.length > 1
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
 
-          const visitedNow = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
-          const isVisited = visitedNow.has(childId);
-          const parentVisited = visitedNow.has(nodeId);
+          const visitedNow = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
+          const isVisited = visitedNow.has(childUrl);
+          const parentVisited = visitedNow.has(nodeUrl);
           const edgeHighlighted = isVisited && parentVisited;
-          graph.addNode(childId, {
+          graph.addNode(childUrl, {
             x: px + X_GAP,
             y: py + yOffset,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
@@ -132,25 +133,25 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             url: child.url
           });
 
-          graph.addEdge(nodeId, childId, {
+          graph.addEdge(nodeUrl, childUrl, {
             size: edgeHighlighted ? 2.5 : 1,
             color: edgeHighlighted ? COLORS.edgeVisited : COLORS.edgeUnvisited,
           });
 
           if (childLinks > 0 && childLinks < maxLinks) {
-            processNode(childId, depth + 1, false);
+            processNode(childUrl, depth + 1, false);
           }
         });
-        graph.setNodeAttribute(nodeId, "color", COLORS.expandable);
-        graph.setNodeAttribute(nodeId, "label", "");
+        graph.setNodeAttribute(nodeUrl, "color", COLORS.expandable);
+        graph.setNodeAttribute(nodeUrl, "label", "");
       }
     };
 
-    const rootId = treeData.id || treeData.url;
+    const rootUrl = treeData.url;
     const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
-    const rootDescendants = descendantCount.get(rootId) || 0;
-    const rootVisited = usePersistentStore.getState().nodes.some((n) => n.id === rootId);
-    graph.addNode(rootId, {
+    const rootDescendants = descendantCount.get(rootUrl) || 0;
+    const rootVisited = usePersistentStore.getState().nodes.some((n) => n.url === rootUrl);
+    graph.addNode(rootUrl, {
       x: 0,
       y: 0.5,
       size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
@@ -161,7 +162,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       url: treeData.url
     });
 
-    processNode(rootId, 0, true);
+    processNode(rootUrl, 0, true);
 
     if (rendererRef.current) {
       rendererRef.current.kill();
@@ -193,9 +194,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     renderer.on("clickNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url") || node;
-      const nodeData = dataMap.current.get(node);
-      const wayback_date = nodeData?.wayback_date;
-      usePersistentStore.getState().addNode({ id: node, url, wayback_date });
+      // const nodeData = dataMap.current.get(node);
+      // const wayback_date = nodeData?.wayback_date;
+      usePersistentStore.getState().addNode({ url });
 
       // Demote previous current node back to its correct non-current colours
       const prevCurrent = currentNodeRef.current;
@@ -216,7 +217,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       graph.setNodeAttribute(node, "zIndex", 10);
 
       // Highlight edges along the visited path
-      const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
+      const visited = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
       graph.forEachEdge(node, (edge, _attrs, source, target) => {
         const other = source === node ? target : source;
         if (visited.has(other)) {
@@ -236,15 +237,15 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     });
 
     // Restore visited state for previously visited nodes (persisted in localStorage)
-    const visitedIds = new Set(usePersistentStore.getState().nodes.map((n) => n.id));
-    graph.forEachNode((nodeId) => {
-      if (visitedIds.has(nodeId)) {
-        graph.setNodeAttribute(nodeId, "borderColor", COLORS.visitedBorder);
-        graph.setNodeAttribute(nodeId, "borderSize", 0.3);
+    const visitedUrls = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
+    graph.forEachNode((nodeUrl) => {
+      if (visitedUrls.has(nodeUrl)) {
+        graph.setNodeAttribute(nodeUrl, "borderColor", COLORS.visitedBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.3);
       }
     });
     graph.forEachEdge((edge, _attrs, source, target) => {
-      if (visitedIds.has(source) && visitedIds.has(target)) {
+      if (visitedUrls.has(source) && visitedUrls.has(target)) {
         graph.setEdgeAttribute(edge, "color", COLORS.edgeVisited);
         graph.setEdgeAttribute(edge, "size", 2.5);
       }
