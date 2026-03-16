@@ -215,8 +215,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       }
 
       // Mark this node as current – float to top
-      // currentNodeRef.current = node;
-      currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
+      currentNodeRef.current = url;
 
       graph.setNodeAttribute(node, "color", COLORS.current);
       graph.setNodeAttribute(node, "borderColor", COLORS.visitedBorder);
@@ -235,7 +234,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
       skipExpansionRef.current = true;
+      const camState = renderer.getCamera().getState();
       processNode(node, depth, true);
+      renderer.getCamera().setState(camState);
 
       // Restore fill + top z-index after processNode
       graph.setNodeAttribute(node, "color", COLORS.current);
@@ -285,23 +286,23 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     if (!graph || graph.order === 0) return;
 
     const visitedUrls = new Set(nodes.map((n) => n.url));
-    // const lastVisited = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
     const prevCurrent = currentNodeRef.current;
     currentNodeRef.current = nodes.length > 0 ? nodes[nodes.length - 1].url : null;
 
+    // Demote the previous current node ONCE before iterating – doing this inside
+    // forEachNode would re-demote it on every iteration where nodeUrl !== prevCurrent,
+    // which would overwrite the "current" styling applied earlier in the loop.
+    if (prevCurrent && prevCurrent !== currentNodeRef.current && graph.hasNode(prevCurrent)) {
+      const prevData = dataMap.current.get(prevCurrent);
+      const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
+      graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
+      graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
+      graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
+      graph.setNodeAttribute(prevCurrent, "zIndex", 0);
+    }
 
     graph.forEachNode((nodeUrl) => {
       const isCurrent = nodeUrl === currentNodeRef.current;
-      if (prevCurrent && prevCurrent !== nodeUrl && graph.hasNode(prevCurrent)) {
-        const prevData = dataMap.current.get(prevCurrent);
-        const prevHasLinks = Array.isArray(prevData?.links) && prevData!.links.length > 0;
-        graph.setNodeAttribute(prevCurrent, "color", prevHasLinks ? COLORS.expandable : COLORS.leaf);
-        graph.setNodeAttribute(prevCurrent, "borderColor", COLORS.visitedBorder);
-        graph.setNodeAttribute(prevCurrent, "borderSize", 0.3);
-        graph.setNodeAttribute(prevCurrent, "zIndex", 0);
-      }
-      // const depth = Math.round(graph.getNodeAttribute(nodeUrl, "x") / X_GAP);
-      // processNode(node, depth, true);
 
       if (isCurrent) {
         graph.setNodeAttribute(nodeUrl, "color", COLORS.current);
