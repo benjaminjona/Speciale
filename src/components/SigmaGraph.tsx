@@ -37,6 +37,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const currentNodeRef = useRef<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const processNodeRef = useRef<((nodeUrl: string, depth: number, force?: boolean) => void) | null>(null);
+  const skipExpansionRef = useRef(false);
   const nodes = usePersistentStore((state) => state.nodes);
 
   useEffect(() => {
@@ -233,6 +234,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       });
 
       const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
+      skipExpansionRef.current = true;
       processNode(node, depth, true);
 
       // Restore fill + top z-index after processNode
@@ -317,9 +319,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       }
     });
 
-    // Dynamically expand the current node
+    // Dynamically expand the current node (skip if click already handled it)
     const currentUrl = currentNodeRef.current;
-    if (currentUrl && graph.hasNode(currentUrl) && processNodeRef.current) {
+    if (currentUrl && graph.hasNode(currentUrl) && processNodeRef.current && !skipExpansionRef.current) {
       const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
       processNodeRef.current(currentUrl, depth, true);
       // Re-apply current styling after processNode may have overridden it
@@ -328,6 +330,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       graph.setNodeAttribute(currentUrl, "borderSize", 0.3);
       graph.setNodeAttribute(currentUrl, "zIndex", 10);
     }
+    skipExpansionRef.current = false;
 
     graph.forEachEdge((edge, _attrs, source, target) => {
       if (visitedUrls.has(source) && visitedUrls.has(target)) {
