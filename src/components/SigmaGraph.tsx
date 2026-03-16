@@ -190,7 +190,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
       if (tooltipRef.current) {
-        tooltipRef.current.textContent = url;
+        tooltipRef.current.textContent = url ;
         tooltipRef.current.style.display = "block";
       }
     });
