@@ -27,6 +27,7 @@ const COLORS = {
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
 };
 // ────────────────────────────────────────────────────────────────────────────
+const X_GAP = 0.6;
 
 const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +36,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const rendererRef = useRef<Sigma | null>(null);
   const currentNodeRef = useRef<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const processNodeRef = useRef<((nodeUrl: string, depth: number, force?: boolean) => void) | null>(null);
   const nodes = usePersistentStore((state) => state.nodes);
 
   useEffect(() => {
@@ -67,7 +69,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     };
     countDescendants(treeData);
 
-    const X_GAP = 0.6;
     const maxLinks = 1;
 
     const processNode = (nodeUrl: string, depth: number, force: boolean = false) => {
@@ -146,6 +147,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         graph.setNodeAttribute(nodeUrl, "label", "");
       }
     };
+
+    processNodeRef.current = processNode;
 
     const rootUrl = treeData.url;
     const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
@@ -313,6 +316,18 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         graph.setNodeAttribute(nodeUrl, "borderSize", 0.0001);
       }
     });
+
+    // Dynamically expand the current node
+    const currentUrl = currentNodeRef.current;
+    if (currentUrl && graph.hasNode(currentUrl) && processNodeRef.current) {
+      const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
+      processNodeRef.current(currentUrl, depth, true);
+      // Re-apply current styling after processNode may have overridden it
+      graph.setNodeAttribute(currentUrl, "color", COLORS.current);
+      graph.setNodeAttribute(currentUrl, "borderColor", COLORS.visitedBorder);
+      graph.setNodeAttribute(currentUrl, "borderSize", 0.3);
+      graph.setNodeAttribute(currentUrl, "zIndex", 10);
+    }
 
     graph.forEachEdge((edge, _attrs, source, target) => {
       if (visitedUrls.has(source) && visitedUrls.has(target)) {
