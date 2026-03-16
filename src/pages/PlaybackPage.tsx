@@ -51,6 +51,7 @@ const PlaybackPage = () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       const pageCrawlDate = data?.pageCrawlDate ?? null;
+      // console.log(data)
       const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
       if (setBaseDate) usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate);
@@ -106,15 +107,11 @@ const PlaybackPage = () => {
       if (state.nodes.length === 0) return;
       if (state.nodes.length === prevState.nodes.length) return;
       const latest = state.nodes[state.nodes.length - 1];
+      const baseCrawl = state.baseCrawlTime
+      console.log(baseCrawl, )
       if (!latest.url) return;
-      console.log(latest.wayback_date, )
-      if (latest.wayback_date) {
-        const playbackUrl = `/solrwayback/services/web/${latest.wayback_date}/${latest.url}`;
-        console.log(playbackUrl)
-        getPlaybackFunction(playbackUrl,true);
-      } else {
-        getPlaybackFunction(latest.url, true);
-      }
+      const playbackUrl = `/solrwayback/services/web/${baseCrawl}/${latest.url}`;
+      getPlaybackFunction(playbackUrl, true);
     });
     return unsubscribe;
   }, []);

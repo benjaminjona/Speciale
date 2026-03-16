@@ -12,6 +12,8 @@ import {
   PopoverCloseTrigger,
 } from '@chakra-ui/react';
 import { LuSettings, LuX, LuNetwork } from 'react-icons/lu';
+import {getSearchUrl} from "./utils/util.ts";
+import {usePersistentStore} from "./store/usePersistentStore.ts";
 
 interface PlaybackViewerProps {
   htmlContent: string | null;
@@ -77,6 +79,10 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
           return NaN;
         }
 
+        const toolbar = document.querySelector('#tegModal');
+        //remove the toolbar !!
+        if(toolbar) toolbar.remove();
+        
         document.addEventListener("DOMContentLoaded", function() {
             if (!pageResources || !pageResources.resources) return;
             pageResources.resources.forEach((resourceInfo) => {
@@ -89,10 +95,9 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
           const allImages = document.querySelectorAll('img');
           const theImage = Array.from(allImages).find(img => img.src === imgSrc);
-          const toolbar = document.querySelector('#tegModal');
-          
-          //remove the toolbar !!
-          if(toolbar) toolbar.remove();
+          // const toolbar = document.querySelector('#tegModal');
+          // //remove the toolbar !!
+          // if(toolbar) toolbar.remove();
           
           if (theImage) {
               // Use outline (doesn't affect layout) instead of border/wrapper
@@ -172,7 +177,7 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
   // Listen for link click messages from the iframe
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.data && event.data.type === '__swb_link_click' && typeof event.data.href === 'string') {
         let href = event.data.href;
 
@@ -186,7 +191,13 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
           // Already a relative path, use as-is
         }
 
-        getPlaybackFunction(href, true);
+        // const response = await fetch(href);
+        // const finalUrl = response.url;
+        
+        // const searchUrl = getSearchUrl(finalUrl);
+        const parts = href.split(/\/\d{14}\//);
+        const url = parts[1];
+        usePersistentStore.getState().addNode({ url});
 
         console.log("Link clicked inside playback:", href);
       }

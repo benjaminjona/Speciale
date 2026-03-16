@@ -2,10 +2,10 @@
   import { persist } from "zustand/middleware";
 
   export interface SelectedNode {
-    id: string;
     url: string;
-    wayback_date?: number;
+    // id: string;
     addedAt: number;
+    // wayback_date?: number;
   }
 
   interface SelectedNodesState {

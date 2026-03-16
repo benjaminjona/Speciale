@@ -72,11 +72,10 @@ const TreeMapComponent = ({ treeData }: { treeData: any }) => {
         borderColor="#ffffff"
 
         // PARENT LABELS (The "Groups")
-        enableParentLabels={true}
+        // enableParentLabels={true}
         parentLabelSize={18}
         parentLabelPosition="top"
         parentLabelPadding={10}
-        parentLabelColor="#1e293b"
       />
     </div>
   );

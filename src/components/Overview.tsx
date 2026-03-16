@@ -22,6 +22,7 @@ export const Overview = () => {
     return buildTreeWithClosestMatch(data, url, wayback_date, domain);
   }, [data, url, wayback_date]);
 
+  // const treeData = buildTreeWithClosestMatch(data, url, wayback_date, domain)
   return (
     <div style={{ padding: "16px", maxWidth: "100%", overflow: "hidden", height: "100vh", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
       <div style={{
