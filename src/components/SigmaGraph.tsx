@@ -189,8 +189,18 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
+      const wayback_date = dataMap.current.get(url)?.wayback_date;
+      
+      let dateString = "";
+      if (wayback_date) {
+        const ds = wayback_date.toString();
+        if (ds.length === 14) {
+          dateString = `\nDate: ${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)} ${ds.slice(8, 10)}:${ds.slice(10, 12)}:${ds.slice(12, 14)}`;
+        }
+      }
+
       if (tooltipRef.current) {
-        tooltipRef.current.textContent = url ;
+        tooltipRef.current.textContent = url + dateString;
         tooltipRef.current.style.display = "block";
       }
     });
@@ -447,6 +457,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             fontSize: "11px",
             maxWidth: "300px",
             wordBreak: "break-all",
+            whiteSpace: "pre-wrap",
             zIndex: 10,
             boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
           }}
