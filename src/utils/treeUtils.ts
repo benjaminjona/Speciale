@@ -1,4 +1,4 @@
-import {JsonDataLink} from "../components/Overview.tsx";
+import {JsonDataLink} from "../pages/OverviewPage.tsx";
 
 export type TreeLink = {
   id: string;

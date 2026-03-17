@@ -1,4 +1,4 @@
-import { JsonDataLink } from "@/components/Overview";
+import { JsonDataLink } from "@/pages/OverviewPage.tsx";
 import { useQuery } from "@tanstack/react-query";
 
 const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
@@ -24,12 +24,9 @@ const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   console.log("Requesting:", searchUrl);
 
   // const response = await fetch(searchUrl);
-  // if (!response.ok) {
-  //   throw new Error(`Fetch failed with status: ${response.status}`);
-  // }
-  // return response.json();
-
   const response = await fetch("/dummyData.json");
+
+
   if (!response.ok) {
     throw new Error(`Fetch failed with status: ${response.status}`);
   }

@@ -12,7 +12,6 @@ import {
   PopoverCloseTrigger,
 } from '@chakra-ui/react';
 import { LuSettings, LuX, LuNetwork } from 'react-icons/lu';
-import {getSearchUrl} from "./utils/util.ts";
 import {usePersistentStore} from "./store/usePersistentStore.ts";
 
 interface PlaybackViewerProps {

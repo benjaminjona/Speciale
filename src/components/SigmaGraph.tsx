@@ -18,12 +18,12 @@ interface SigmaGraphProps {
 
 // Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
 const COLORS = {
-  expandable:      "#5B9BD5", // medium blue      – has children
+  expandable:      "#0000EE", // medium blue      – has children
   leaf:            "#E8F2FB", // near-white blue  – no children
   current:         "#6f1078", // vivid orange     – YOU ARE HERE
-  visitedBorder:   "#ca0bf5", // mid navy        – ring on any visited node
+  visitedBorder:   "#E23CE3", // mid navy        – ring on any visited node
   unvisitedBorder: "#C8DCF0", // muted blue-grey – hairline border on unvisited
-  edgeVisited:     "#ca0bf5", // brand navy      – traversed path
+  edgeVisited:     "#E23CE3", // brand navy      – traversed path
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
 };
 // ────────────────────────────────────────────────────────────────────────────
