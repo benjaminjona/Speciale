@@ -3,6 +3,7 @@ import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
+import {formatTimestamp} from "../utils/util.ts";
 
 export type TreeLink = {
   id: string;
@@ -39,6 +40,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const processNodeRef = useRef<((nodeUrl: string, depth: number, force?: boolean) => void) | null>(null);
   const skipExpansionRef = useRef(false);
   const nodes = usePersistentStore((state) => state.nodes);
+  const baseCrawlTime = usePersistentStore((state) => state.baseCrawlTime);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -427,16 +429,36 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   return (
     <div style={{height:"100%", paddingBottom: "50px"}}>
       {/* Domain header bar */}
+      <div style={{
+        padding: "6px 14px", marginBottom: "6px", borderRadius: "8px",
+        backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0",
+        display: "flex", gap: "8px", flexWrap: "wrap",
+      }}>
       {domain && (
         <div style={{
-          padding: "6px 14px", marginBottom: "6px", borderRadius: "8px",
-          backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0",
           display: "flex", alignItems: "center", gap: "8px",
+
         }}>
           <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Domain</span>
           <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{domain}</span>
         </div>
       )}
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: "8px",
+            borderLeft: "1px solid #cbd5e1",
+          }}
+        >
+        </div>
+      {baseCrawlTime && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+        }}>
+          <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reference date</span>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{formatTimestamp(baseCrawlTime)}</span>
+        </div>
+      )}
+        </div>
 
       <div style={{ height: "100%", position: "relative" }}>
         <div
@@ -484,8 +506,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           boxShadow: "0 1px 6px rgba(0,46,112,0.10)",
         }}>
           {([
-            { color: COLORS.expandable, border: COLORS.unvisitedBorder, label: "Outgoing links" },
-            { color: COLORS.leaf,       border: COLORS.unvisitedBorder, label: "No outgoing links" },
+            { color: COLORS.expandable, border: COLORS.unvisitedBorder, label: "Links" },
+            { color: COLORS.leaf,       border: COLORS.unvisitedBorder, label: "No links" },
           ] as { color: string; border: string; label: string }[]).map(({ color, border, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
               <div style={{

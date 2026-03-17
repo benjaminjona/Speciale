@@ -57,4 +57,27 @@ export const getTimeJumpToastDescription = (pageCrawlTime: number, baseCrawlTime
     days > 0 && plural(days, "day")
   ]
     .filter(Boolean)
-    .join(", ");};
+    .join(", ");
+};
+
+/**
+ * Converts a millisecond timestamp to 'YYYY-MM-DD HH:mm' format.
+ * @param {number} timestamp - The epoch time in milliseconds.
+ * @returns {string} - Formatted date string.
+ */
+export const formatTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+
+  const year = date.getFullYear();
+  // Months are 0-indexed, so we add 1 and pad with a leading zero
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
+// Example usage:
+console.log(formatTimestamp(861389083000)); // "1997-04-18 18:44"
