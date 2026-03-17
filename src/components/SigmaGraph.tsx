@@ -189,18 +189,26 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
 
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
-      const wayback_date = dataMap.current.get(url)?.wayback_date;
-      
-      let dateString = "";
-      if (wayback_date) {
-        const ds = wayback_date.toString();
-        if (ds.length === 14) {
-          dateString = `\nDate: ${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)} ${ds.slice(8, 10)}:${ds.slice(10, 12)}:${ds.slice(12, 14)}`;
-        }
-      }
-
+      const nodeData = dataMap.current.get(url);
       if (tooltipRef.current) {
-        tooltipRef.current.textContent = url + dateString;
+        if (nodeData && nodeData.wayback_date) {
+            const dateStr = nodeData.wayback_date.toString();
+            // Format YYYYMMDDHHMMSS to somewhat readable if possible
+            const formattedDate = dateStr.length === 14 
+              ? `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)} ${dateStr.slice(8, 10)}:${dateStr.slice(10, 12)}`
+              : dateStr;
+            
+            tooltipRef.current.innerHTML = `
+              <div style="font-size: 12px; font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+                ${url}
+              </div>
+              <div style="color: #334155; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                <span style="font-weight: 500;">CRAWL DATE: ${formattedDate}</span>
+              </div>
+            `;
+        } else {
+            tooltipRef.current.textContent = url;
+        }
         tooltipRef.current.style.display = "block";
       }
     });
@@ -450,16 +458,16 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             display: "none",
             position: "absolute",
             pointerEvents: "none",
-            backgroundColor: "rgba(15, 23, 42, 0.88)",
-            color: "#f8fafc",
-            padding: "4px 9px",
-            borderRadius: "5px",
-            fontSize: "11px",
-            maxWidth: "300px",
-            wordBreak: "break-all",
-            whiteSpace: "pre-wrap",
-            zIndex: 10,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+            backgroundColor: "#ffffff",
+            color: "#1e293b",
+            padding: "8px 10px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 500,
+            maxWidth: "350px",
+            wordBreak: "break-word",
+            zIndex: 100,
+            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05)",
           }}
         />
 
