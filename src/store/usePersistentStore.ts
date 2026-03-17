@@ -13,6 +13,8 @@
     addNode: (node: Omit<SelectedNode, "addedAt">) => void;
     baseCrawlTime: number;
     setBaseCrawlTime: (time: number) => void;
+    baseUrl: string;
+       setBaseUrl: (url: string) => void;
     removeNode: (id: string) => void;
     clearNodes: () => void;
   }
@@ -46,6 +48,13 @@
             broadcast([]);
             return { nodes: [] };
           }),
+
+         baseUrl: "",
+         setBaseUrl: (url) =>
+            set(() => {
+               return { baseUrl: url };
+            })
+
 
       }),
       { name: "selected-nodes" }

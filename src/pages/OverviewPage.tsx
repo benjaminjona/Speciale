@@ -3,6 +3,7 @@ import { useDomainJsonDump } from "../api/useDomainJsonDump.ts";
 import {buildTreeWithClosestMatch} from "../utils/treeUtils.ts";
 import SigmaGraph from "../components/SigmaGraph.tsx";
 import {usePersistentStore} from "../store/usePersistentStore.ts";
+import {epochToWaybackNumber} from "../utils/util.ts";
 
 export type JsonDataLink = {
   id: string;
@@ -13,16 +14,25 @@ export type JsonDataLink = {
 };
 
 export const OverviewPage = () => {
-  const { data, isLoading, isError } = useDomainJsonDump("http://www.kidpub.org/kidpub");
-  const url = "http://www.kidpub.org:80/kidpub/";
-  const wayback_date = 19970404180804;
-  // const wayback_date = usePersistentStore((state) => state.baseCrawlTime) ;
-  const domain = "kidpub.org";
+  // const url1 = "http://www.kidpub.org:80/kidpub";
+  const url = usePersistentStore((state) => state.baseUrl);
+  // const wayback_date = 19970404180804;
+  const wayback_date = usePersistentStore((state) => state.baseCrawlTime) ;
+  // const domain = "kidpub.org";
+  const newUrl = new URL(url);
+  const date = epochToWaybackNumber(wayback_date)
+  let hostname = newUrl.hostname;
+  const domain = hostname.replace(/^www\./, '');
+  // const { data, isLoading, isError } = useDomainJsonDump("http://www.kidpub.org/kidpub");
+  const { data, isLoading, isError } = useDomainJsonDump(url);
+  // console.log(domain,date,url,data,);
 
   const treeData = useMemo(() => {
     if (!data) return null;
-    return buildTreeWithClosestMatch(data, url, wayback_date, domain);
-  }, [data, url, wayback_date]);
+  // console.log("in here", data.length, )
+    return buildTreeWithClosestMatch(data, url, date, domain);
+  }, [data, url, date]);
+  // console.log(treeData, )
 
   // const treeData = buildTreeWithClosestMatch(data, url, wayback_date, domain)
   return (

@@ -4,31 +4,29 @@ import { useQuery } from "@tanstack/react-query";
 const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   const normalizedHref = href.startsWith("http") ? href : `http://${href}`;
   const urlObj = new URL(normalizedHref);
-  const domain = urlObj.hostname;
+  const domain = urlObj.hostname.replace(/^www\./, '');
 
-  const baseUrl = "solrwayback/services/export/fields";
+  // CHANGE THIS LINE: Remove http://localhost:8080
+  // Use the path that matches your proxy config
+  const baseUrl = "/solrwayback/services/export/fields";
 
   const params = new URLSearchParams();
-  params.append("query", `domain:${domain}`);
+  params.append("query", "* ");
   params.append("fq", `domain:"${domain}"`);
   params.append("fq", 'content_type_norm:"html"');
-  params.append(
-    "fields",
-    "wayback_date,url,url_norm,domain,links,id,source_file_path,source_file_offset",
-  );
+  params.append("fields", "wayback_date,url,url_norm,domain,links,id,source_file_path,source_file_offset");
   params.append("flatten", "false");
   params.append("format", "json");
   params.append("gzip", "false");
 
   const searchUrl = `${baseUrl}?${params.toString()}`;
-  console.log("Requesting:", searchUrl);
 
-  // const response = await fetch(searchUrl);
-  const response = await fetch("/dummyData.json");
-
+  // Now the browser sees: GET http://localhost:5173/solrwayback/services/...
+  // Vite then forwards it to 8080, and no CORS error occurs!
+  const response = await fetch(searchUrl);
 
   if (!response.ok) {
-    throw new Error(`Fetch failed with status: ${response.status}`);
+    throw new Error(`Fetch failed: ${response.status}`);
   }
 
   return response.json();

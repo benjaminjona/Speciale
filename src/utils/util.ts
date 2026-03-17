@@ -11,6 +11,25 @@ export const getSearchUrl = (href: string) => {
 }
 
 
+
+export const epochToWaybackNumber = (epochMs: number): number => {
+  // 1. Create date (no need to multiply if it's already milliseconds)
+  const date = new Date(epochMs);
+
+  // 2. Extract and Pad with '0' to ensure 2 digits
+  const YYYY = date.getUTCFullYear().toString();
+  const MM = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const DD = date.getUTCDate().toString().padStart(2, '0');
+  const HH = date.getUTCHours().toString().padStart(2, '0');
+  const mm = date.getUTCMinutes().toString().padStart(2, '0');
+  const ss = date.getUTCSeconds().toString().padStart(2, '0');
+
+  // 3. Join as string first "20021117140055"
+  const combinedString = `${YYYY}${MM}${DD}${HH}${mm}${ss}`;
+
+  // 4. Convert the whole string to a Number
+  return Number(combinedString);
+};
 export const getTimeJumpToastDescription = (pageCrawlTime: number, baseCrawlTime: number | null) => {
   if (!baseCrawlTime) return "No comparison date available";
   const d1 = new Date(pageCrawlTime < 10000000000 ? pageCrawlTime * 1000 : pageCrawlTime);

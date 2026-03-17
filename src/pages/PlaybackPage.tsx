@@ -51,10 +51,14 @@ const PlaybackPage = () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       const pageCrawlDate = data?.pageCrawlDate ?? null;
-      // console.log(data)
+      const pageUrl = data?.pageUrl ?? null;
+      console.log(pageUrl)
       const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
-      if (setBaseDate) usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate);
+      if (setBaseDate) {
+        usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate)
+        usePersistentStore.getState().setBaseUrl(pageUrl)
+      }
       if (!setBaseDate && pageCrawlDate !== baseCrawlTime) {
         const description = getTimeJumpToastDescription(pageCrawlDate, baseCrawlTime);
         toaster.create({
@@ -62,7 +66,7 @@ const PlaybackPage = () => {
           description: description,
           type: "error",
           closable: true,
-          duration: 5000,
+          duration: 3000,
         });
       }
     } catch (err) {
