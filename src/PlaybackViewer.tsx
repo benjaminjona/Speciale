@@ -407,7 +407,7 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
               <Text fontSize="xs" style={{ color: "#002E70", opacity: 0.7 }}>
                 Resources beyond this threshold are highlighted in{' '}
-                <Text as="span" color="#EA580C" fontWeight="bold">orange</Text>
+                <Text as="span" color="#FF0000" fontWeight="bold">Red</Text>
               </Text>
 
               <button

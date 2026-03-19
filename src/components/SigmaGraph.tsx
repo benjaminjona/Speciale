@@ -198,10 +198,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
       if (tooltipRef.current) {
         if (nodeData && nodeData.wayback_date) {
             const dateStr = nodeData.wayback_date.toString();
-            // Format YYYYMMDDHHMMSS to somewhat readable if possible
-            const formattedDate = dateStr.length === 14 
-              ? `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)} ${dateStr.slice(8, 10)}:${dateStr.slice(10, 12)}`
-              : dateStr;
+            let formattedDate = dateStr;
+            if (dateStr.length === 14) {
+              const d = new Date(Date.UTC(
+                +dateStr.slice(0, 4), +dateStr.slice(4, 6) - 1, +dateStr.slice(6, 8),
+                +dateStr.slice(8, 10), +dateStr.slice(10, 12), +dateStr.slice(12, 14)
+              ));
+              formattedDate = d.toLocaleString();
+            }
             
             tooltipRef.current.innerHTML = `
               <div style="font-size: 12px; font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
@@ -458,7 +462,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           display: "flex", alignItems: "center", gap: "8px",
         }}>
           <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reference date</span>
-          <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{formatTimestamp(baseCrawlTime)}</span>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{new Date(baseCrawlTime).toLocaleString()}</span>
         </div>
       )}
         </div>
