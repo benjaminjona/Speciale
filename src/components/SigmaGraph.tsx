@@ -99,6 +99,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         const desc = descendantCount.get(nodeUrl) || 0;
         const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
         const isVis = visitedSet.has(nodeUrl);
+
+
         graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
         graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
         graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : 0.0001);

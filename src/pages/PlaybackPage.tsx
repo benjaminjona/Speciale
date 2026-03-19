@@ -52,7 +52,7 @@ const PlaybackPage = () => {
       const data = await response.json();
       const pageCrawlDate = data?.pageCrawlDate ?? null;
       const pageUrl = data?.pageUrl ?? null;
-      console.log(pageUrl, pageCrawlDate, data)
+      // console.log(pageUrl, pageCrawlDate, data)
       const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
       if (setBaseDate) {
@@ -117,7 +117,6 @@ const PlaybackPage = () => {
       console.log(baseCrawl, newDate)
       if (!latest.url) return;
       const playbackUrl = `/solrwayback/services/web/${newDate}/${latest.url}`;
-      console.log(playbackUrl, )
       getPlaybackFunction(playbackUrl, true);
     });
     return unsubscribe;

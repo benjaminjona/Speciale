@@ -19,10 +19,10 @@ export const buildTreeWithClosestMatch = (
 
   // Helper to find the closest snapshot (unchanged logic)
   const findClosestMatch = (url: string, wayback_date: number) => {
-    const candidates = data.filter(item => item.url === url);
+    const candidates = data.filter(item => item.url === url || item.url_norm === url);
     if (candidates.length === 0) return undefined;
     return candidates.reduce((closest, item) => {
-      return Math.abs(item.wayback_date - wayback_date) < Math.abs(closest.wayback_date - wayback_date)
+      return Math.abs(item.wayback_date - wayback_date) <= Math.abs(closest.wayback_date - wayback_date)
         ? item : closest;
     }, candidates[0]);
   };
@@ -53,7 +53,7 @@ export const buildTreeWithClosestMatch = (
 
     if (!currentMatch.links) continue;
     const filteredLinks = (currentMatch.links || []).filter((linkUrl: string) =>
-      linkUrl.includes(domain) && !linkUrl.includes("mailto:")
+     !linkUrl.includes("mailto:")
     );
 
     for (const linkUrl of filteredLinks) {
