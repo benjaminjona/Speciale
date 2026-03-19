@@ -94,7 +94,6 @@ const PlaybackPage = () => {
     const url = searchParams.get("url");
     const sourceFilePath = searchParams.get("source_file_path");
     const offset = searchParams.get("offset");
-    console.log(waybackDate,"in here with asfdksjndf", )
     if (waybackDate && url) {
       const playbackUrl = `/solrwayback/services/web/${waybackDate}/${url}`;
       getPlaybackFunction(playbackUrl);
@@ -114,7 +113,6 @@ const PlaybackPage = () => {
       const baseCrawl = state.baseCrawlTime;
       const newDate = epochToWaybackNumber(baseCrawl)
       // const baseCrawl = state.baseCrawlTime
-      console.log(baseCrawl, newDate)
       if (!latest.url) return;
       const playbackUrl = `/solrwayback/services/web/${newDate}/${latest.url}`;
       getPlaybackFunction(playbackUrl, true);

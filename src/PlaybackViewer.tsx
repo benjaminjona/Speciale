@@ -134,7 +134,6 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
           }
       });
     });
-        console.log("-----------------------------------------");
 
          
         // Intercept clicks on all <a> tags and forward href to parent
@@ -198,7 +197,6 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
         const url = parts[1];
         usePersistentStore.getState().addNode({ url});
 
-        console.log("Link clicked inside playback:", href);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -407,7 +405,7 @@ const PlaybackViewer = ({htmlContent, baseUrl, pageResources, getPlaybackFunctio
 
               <Text fontSize="xs" style={{ color: "#002E70", opacity: 0.7 }}>
                 Resources beyond this threshold are highlighted in{' '}
-                <Text as="span" color="#FF0000" fontWeight="bold">Red</Text>
+                <Text as="span" color="#FF0000" fontWeight="bold">red</Text>
               </Text>
 
               <button

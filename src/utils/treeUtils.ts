@@ -34,7 +34,6 @@ export const buildTreeWithClosestMatch = (
 
   // 1. Initialize the Root
   const rootMatch = findClosestMatch(rootUrl, requestedTimestamp);
-  console.log(rootMatch)
   if (!rootMatch) return { id: "", url: rootUrl, wayback_date: requestedTimestamp, links: [] };
 
   const rootMatchUrl = stripWww(rootMatch.url);
