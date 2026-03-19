@@ -24,6 +24,7 @@ export const OverviewPage = () => {
   let hostname = newUrl.hostname;
   const domain = hostname.replace(/^www\./, '');
   // const { data, isLoading, isError } = useDomainJsonDump("http://www.kidpub.org/kidpub");
+  const clearNodes = usePersistentStore((state) => state.clearNodes);
   const { data, isLoading, isError } = useDomainJsonDump(url);
   // console.log("newUrl:",newUrl,"hostman:", hostname,domain,date,url,data,);
 
@@ -43,6 +44,27 @@ export const OverviewPage = () => {
         marginBottom: "12px", flexWrap: "wrap", gap: "10px",
       }}>
         <h1 style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>Overview of the domain</h1>
+        <button
+          onClick={() => { clearNodes(); window.location.reload(); }}
+          title="Clear all saved data and reload"
+          style={{
+            display: "flex", alignItems: "center", gap: "6px",
+            padding: "6px 14px", fontSize: "0.8rem", fontWeight: 600,
+            color: "#b91c1c", backgroundColor: "#fff1f2",
+            border: "1px solid #fca5a5", borderRadius: "8px",
+            cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#fee2e2";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "#f87171";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#fff1f2";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "#fca5a5";
+          }}
+        >
+          ↺ Clear &amp; Reset
+        </button>
       </div>
 
       {isLoading && (
