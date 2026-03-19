@@ -1,4 +1,8 @@
 
+export const stripWww = (url: string): string => {
+  return url.replace(/^(https?:\/\/)www\./i, '$1');
+};
+
 export const getSearchUrl = (href: string) => {
   const match = href.match(/\/solrwayback\/services\/web(?:Proxy)?\/(\d{14})\/(.+)/);
   if (!match)return;

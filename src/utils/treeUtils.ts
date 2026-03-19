@@ -1,4 +1,5 @@
 import {JsonDataLink} from "../pages/OverviewPage.tsx";
+import {stripWww} from "./util.ts";
 
 export type TreeLink = {
   id: string;
@@ -15,11 +16,15 @@ export const buildTreeWithClosestMatch = (
 ): TreeLink | null => {
   if (!data || !rootUrl) return null;
 
+  rootUrl = stripWww(rootUrl);
   const visited = new Set<string>();
 
   // Helper to find the closest snapshot (unchanged logic)
   const findClosestMatch = (url: string, wayback_date: number) => {
-    const candidates = data.filter(item => item.url === url || item.url_norm === url);
+    const normalizedUrl = stripWww(url);
+    const candidates = data.filter(item =>
+      stripWww(item.url) === normalizedUrl || stripWww(item.url_norm) === normalizedUrl
+    );
     if (candidates.length === 0) return undefined;
     return candidates.reduce((closest, item) => {
       return Math.abs(item.wayback_date - wayback_date) <= Math.abs(closest.wayback_date - wayback_date)
@@ -32,14 +37,15 @@ export const buildTreeWithClosestMatch = (
   console.log(rootMatch)
   if (!rootMatch) return { id: "", url: rootUrl, wayback_date: requestedTimestamp, links: [] };
 
+  const rootMatchUrl = stripWww(rootMatch.url);
   const rootNode: TreeLink = {
     id: rootMatch.id,
-    url: rootMatch.url,
+    url: rootMatchUrl,
     wayback_date: rootMatch.wayback_date,
     links: []
   };
 
-  visited.add(rootMatch.url);
+  visited.add(rootMatchUrl);
 
   // 2. Initialize the Queue for BFS
   // We store the 'closest' data object and the 'treeNode' it belongs to
@@ -57,20 +63,22 @@ export const buildTreeWithClosestMatch = (
     );
 
     for (const linkUrl of filteredLinks) {
-      const closestChild = findClosestMatch(linkUrl, requestedTimestamp);
-      if (closestChild && !visited.has(closestChild.url)) {
-        visited.add(closestChild.url);
+      const normalizedLinkUrl = stripWww(linkUrl);
+      const closestChild = findClosestMatch(normalizedLinkUrl, requestedTimestamp);
+      const childUrl = closestChild ? stripWww(closestChild.url) : normalizedLinkUrl;
+      if (closestChild && !visited.has(childUrl)) {
+        visited.add(childUrl);
 
         const newNode: TreeLink = {
           id: closestChild.id,
-          url: closestChild.url,
+          url: childUrl,
           wayback_date: closestChild.id ? closestChild.wayback_date : requestedTimestamp,
           links: []
         };
         treeNode.links.push(newNode);
         queue.push({ currentMatch: closestChild, treeNode: newNode });
-      } else if (!closestChild) {
-        treeNode.links.push({ id: "", url: linkUrl, wayback_date: requestedTimestamp, links: [] });
+      } else if (!closestChild && !visited.has(normalizedLinkUrl)) {
+        treeNode.links.push({ id: "", url: normalizedLinkUrl, wayback_date: requestedTimestamp, links: [] });
       }
     }
   }

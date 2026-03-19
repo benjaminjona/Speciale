@@ -1,5 +1,6 @@
   import { create } from "zustand";
   import { persist } from "zustand/middleware";
+  import { stripWww } from "../utils/util.ts";
 
   export interface SelectedNode {
     url: string;
@@ -33,7 +34,8 @@
         ,
         addNode: (node) =>
           set((state) => {
-            const updated = [...state.nodes, { ...node, addedAt: Date.now() }];
+            const sanitized = { ...node, url: stripWww(node.url) };
+            const updated = [...state.nodes, { ...sanitized, addedAt: Date.now() }];
             broadcast(updated);
             return { nodes: updated };
           }),
@@ -52,7 +54,7 @@
          baseUrl: "",
          setBaseUrl: (url) =>
             set(() => {
-               return { baseUrl: url };
+               return { baseUrl: stripWww(url) };
             })
 
 
