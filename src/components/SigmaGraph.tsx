@@ -158,6 +158,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
     const rootDescendants = descendantCount.get(rootUrl) || 0;
     const rootVisited = usePersistentStore.getState().nodes.some((n) => n.url === rootUrl);
+    console.log(rootVisited,rootUrl, rootLinks,usePersistentStore.getState().nodes )
     graph.addNode(rootUrl, {
       x: 0,
       y: 0.5,

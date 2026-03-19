@@ -19,7 +19,7 @@ export const buildTreeWithClosestMatch = (
 
   // Helper to find the closest snapshot (unchanged logic)
   const findClosestMatch = (url: string, wayback_date: number) => {
-    const candidates = data.filter(item => item.url === url || item.url_norm === url);
+    const candidates = data.filter(item => item.url === url);
     if (candidates.length === 0) return undefined;
     return candidates.reduce((closest, item) => {
       return Math.abs(item.wayback_date - wayback_date) < Math.abs(closest.wayback_date - wayback_date)
@@ -29,6 +29,7 @@ export const buildTreeWithClosestMatch = (
 
   // 1. Initialize the Root
   const rootMatch = findClosestMatch(rootUrl, requestedTimestamp);
+  console.log(rootMatch)
   if (!rootMatch) return { id: "", url: rootUrl, wayback_date: requestedTimestamp, links: [] };
 
   const rootNode: TreeLink = {

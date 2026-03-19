@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search } from "./components/search";
 import SearchResult from "./components/SearchResult.tsx";
 import { SolrDoc } from "./types.ts";
+import {usePersistentStore} from "./store/usePersistentStore.ts";
 
 function App() {
   // const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ function App() {
       source_file_path: doc.source_file_path ?? "",
       offset: String(doc.source_file_offset ?? ""),
     });
+    usePersistentStore.getState().addNode({ url:doc.url });
     window.open(`/playback?${params.toString()}`, "_blank");
   };
 

@@ -24,6 +24,7 @@ const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   // Now the browser sees: GET http://localhost:5173/solrwayback/services/...
   // Vite then forwards it to 8080, and no CORS error occurs!
   const response = await fetch(searchUrl);
+  console.log(response,searchUrl)
 
   if (!response.ok) {
     throw new Error(`Fetch failed: ${response.status}`);

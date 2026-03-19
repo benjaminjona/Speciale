@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import PlaybackViewer from "../PlaybackViewer";
 import { toaster, Toaster } from "../src/components/ui/toaster";
-import { getSearchUrl, getTimeJumpToastDescription } from "../utils/util.ts";
+import {epochToWaybackNumber, getSearchUrl, getTimeJumpToastDescription} from "../utils/util.ts";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
 
 interface PlaybackData {
@@ -52,7 +52,7 @@ const PlaybackPage = () => {
       const data = await response.json();
       const pageCrawlDate = data?.pageCrawlDate ?? null;
       const pageUrl = data?.pageUrl ?? null;
-      console.log(pageUrl)
+      console.log(pageUrl, pageCrawlDate, data)
       const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
       if (setBaseDate) {
@@ -94,7 +94,7 @@ const PlaybackPage = () => {
     const url = searchParams.get("url");
     const sourceFilePath = searchParams.get("source_file_path");
     const offset = searchParams.get("offset");
-
+    console.log(waybackDate,"in here with asfdksjndf", )
     if (waybackDate && url) {
       const playbackUrl = `/solrwayback/services/web/${waybackDate}/${url}`;
       getPlaybackFunction(playbackUrl);
@@ -111,10 +111,13 @@ const PlaybackPage = () => {
       if (state.nodes.length === 0) return;
       if (state.nodes.length === prevState.nodes.length) return;
       const latest = state.nodes[state.nodes.length - 1];
-      const baseCrawl = state.baseCrawlTime
-      console.log(baseCrawl, )
+      const baseCrawl = state.baseCrawlTime;
+      const newDate = epochToWaybackNumber(baseCrawl)
+      // const baseCrawl = state.baseCrawlTime
+      console.log(baseCrawl, newDate)
       if (!latest.url) return;
-      const playbackUrl = `/solrwayback/services/web/${baseCrawl}/${latest.url}`;
+      const playbackUrl = `/solrwayback/services/web/${newDate}/${latest.url}`;
+      console.log(playbackUrl, )
       getPlaybackFunction(playbackUrl, true);
     });
     return unsubscribe;

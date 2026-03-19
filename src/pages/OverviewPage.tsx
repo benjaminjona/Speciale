@@ -25,7 +25,8 @@ export const OverviewPage = () => {
   const domain = hostname.replace(/^www\./, '');
   // const { data, isLoading, isError } = useDomainJsonDump("http://www.kidpub.org/kidpub");
   const { data, isLoading, isError } = useDomainJsonDump(url);
-  // console.log(domain,date,url,data,);
+  // console.log("newUrl:",newUrl,"hostman:", hostname,domain,date,url,data,);
+
 
   const treeData = useMemo(() => {
     if (!data) return null;

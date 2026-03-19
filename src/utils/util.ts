@@ -78,6 +78,3 @@ export const formatTimestamp = (timestamp: number) => {
 
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 };
-
-// Example usage:
-console.log(formatTimestamp(861389083000)); // "1997-04-18 18:44"

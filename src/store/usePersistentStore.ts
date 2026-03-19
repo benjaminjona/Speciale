@@ -14,7 +14,7 @@
     baseCrawlTime: number;
     setBaseCrawlTime: (time: number) => void;
     baseUrl: string;
-       setBaseUrl: (url: string) => void;
+    setBaseUrl: (url: string) => void;
     removeNode: (id: string) => void;
     clearNodes: () => void;
   }
