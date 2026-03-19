@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import PlaybackViewer from "../PlaybackViewer";
 import { toaster, Toaster } from "../src/components/ui/toaster";
-import {epochToWaybackNumber, getSearchUrl, getTimeJumpToastDescription} from "../utils/util.ts";
+import {
+  epochToWaybackNumber,
+  getSearchUrl,
+  getTimeJumpToastDescription,
+} from "../utils/util.ts";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
 
 interface PlaybackData {
@@ -36,31 +40,38 @@ const PlaybackPage = () => {
         type: "error",
         closable: true,
         duration: 5000,
-      })
-
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const getDivergentResources = async (source_file_path?: string, offset?: number, setBaseDate?: boolean) => {
+  const getDivergentResources = async (
+    source_file_path?: string,
+    offset?: number,
+    setBaseDate?: boolean,
+  ) => {
     if (!source_file_path || offset === undefined) return;
     try {
       const url = `/solrwayback/services/timestampsforpage/?source_file_path=${encodeURIComponent(source_file_path)}&offset=${offset}`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       const pageCrawlDate = data?.pageCrawlDate ?? null;
       const pageUrl = data?.pageUrl ?? null;
-      console.log(pageUrl, pageCrawlDate, data)
+      console.log(pageUrl, pageCrawlDate, data);
       const baseCrawlTime = usePersistentStore.getState().baseCrawlTime;
       setDivergentPageResources(data);
       if (setBaseDate) {
-        usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate)
-        usePersistentStore.getState().setBaseUrl(pageUrl)
+        usePersistentStore.getState().setBaseCrawlTime(pageCrawlDate);
+        usePersistentStore.getState().setBaseUrl(pageUrl);
       }
       if (!setBaseDate && pageCrawlDate !== baseCrawlTime) {
-        const description = getTimeJumpToastDescription(pageCrawlDate, baseCrawlTime);
+        const description = getTimeJumpToastDescription(
+          pageCrawlDate,
+          baseCrawlTime,
+        );
         toaster.create({
           title: "Time jump detected!",
           description: description,
@@ -82,7 +93,11 @@ const PlaybackPage = () => {
       if (!response.ok) return;
       const data = await response.json();
       const doc = data?.response?.docs?.[0];
-      getDivergentResources(doc.source_file_path, doc.source_file_offset, false);
+      getDivergentResources(
+        doc.source_file_path,
+        doc.source_file_offset,
+        false,
+      );
     } catch (err) {
       console.error("Error resolving page resources for navigation:", err);
     }
@@ -94,7 +109,7 @@ const PlaybackPage = () => {
     const url = searchParams.get("url");
     const sourceFilePath = searchParams.get("source_file_path");
     const offset = searchParams.get("offset");
-    console.log(waybackDate,"in here with asfdksjndf", )
+    console.log(waybackDate, "in here with asfdksjndf");
     if (waybackDate && url) {
       const playbackUrl = `/solrwayback/services/web/${waybackDate}/${url}`;
       getPlaybackFunction(playbackUrl);
@@ -112,12 +127,12 @@ const PlaybackPage = () => {
       if (state.nodes.length === prevState.nodes.length) return;
       const latest = state.nodes[state.nodes.length - 1];
       const baseCrawl = state.baseCrawlTime;
-      const newDate = epochToWaybackNumber(baseCrawl)
+      const newDate = epochToWaybackNumber(baseCrawl);
       // const baseCrawl = state.baseCrawlTime
-      console.log(baseCrawl, newDate)
+      console.log(baseCrawl, newDate);
       if (!latest.url) return;
       const playbackUrl = `/solrwayback/services/web/${newDate}/${latest.url}`;
-      console.log(playbackUrl, )
+      console.log(playbackUrl);
       getPlaybackFunction(playbackUrl, true);
     });
     return unsubscribe;
@@ -139,7 +154,6 @@ const PlaybackPage = () => {
             baseUrl={playbackData.baseUrl}
             pageResources={divergentPageResources}
           />
-
         </div>
       ) : (
         !loading && (
