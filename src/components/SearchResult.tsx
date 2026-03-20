@@ -6,6 +6,8 @@ type SearchResultProps = {
 
 }
 const SearchResult = ({doc,onClick}:SearchResultProps) => {
+  const date = doc.crawl_date || doc.wayback_date;
+  const newDate = new Date(date);
   return (
       <li
         style={{
@@ -26,11 +28,8 @@ const SearchResult = ({doc,onClick}:SearchResultProps) => {
         >
           {doc.url}
         </div>
-        <div style={{ fontSize: "12px", color: "#666" }}>
-          {doc.crawl_date || doc.wayback_date}
-        </div>
-        <div style={{ fontSize: "12px", color: "#888" }}>
-          {doc.content_type}
+        <div style={{ fontSize: "16px", color: "#666" }}>
+          {newDate.toLocaleString() }
         </div>
       </li>
   );
