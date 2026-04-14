@@ -361,6 +361,21 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
       const otherCount = allVersions.length > 1 ? allVersions.length - 1 : 0;
 
+      // Thumbnail: scale a 1024×640 iframe down to 280×175px
+      const thumbSrc = currentTs ? proxyUrl(currentTs, url) : null;
+      const thumbHtml = thumbSrc ? `
+        <div style="margin-top:8px; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden; width:280px; height:175px; position:relative; background:#f8fafc;">
+          <iframe
+            src="${thumbSrc}"
+            style="width:1024px; height:640px; transform:scale(0.2734375); transform-origin:top left; pointer-events:none; border:none; display:block;"
+            sandbox="allow-scripts allow-same-origin"
+            scrolling="no"
+            loading="lazy"
+            title="Page preview"
+          ></iframe>
+          <div style="position:absolute;inset:0;pointer-events:none;"></div>
+        </div>` : "";
+
       tooltipRef.current.innerHTML = `
         <div style="font-size:12px; font-weight:600; color:#0f172a; margin-bottom:6px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; word-break:break-all;">
           ${url}
@@ -369,8 +384,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         <div style="color:#334155; font-size:12px; margin-bottom:5px;">
           <span style="font-weight:500;">CRAWL DATE: ${formattedCurrent}</span>
         </div>` : ""}
+        ${thumbHtml}
         ${otherCount > 0 ? `
-        <div style="font-size:11px; color:#64748b; border-top:1px solid #e2e8f0; padding-top:5px;">
+        <div style="font-size:11px; color:#64748b; border-top:1px solid #e2e8f0; padding-top:5px; margin-top:8px;">
           ${otherCount} other version${otherCount !== 1 ? "s" : ""} exist${otherCount === 1 ? "s" : ""}<br/>
           <span style="color:#94a3b8; font-style:italic;">Right-click to see all versions</span>
         </div>` : ""}
@@ -662,7 +678,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
             borderRadius: "8px",
             fontSize: "13px",
             fontWeight: 500,
-            maxWidth: "400px",
+            maxWidth: "320px",
             wordBreak: "break-word",
             zIndex: 100,
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05)",
