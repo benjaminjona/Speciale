@@ -85,7 +85,7 @@ export const OverviewPage = () => {
       )}
 
       {treeData && (
-        <SigmaGraph treeData={treeData} domain={domain} />
+        <SigmaGraph treeData={treeData} domain={domain} data={data ?? undefined} />
       )}
     </div>
   );

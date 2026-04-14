@@ -4,7 +4,25 @@ import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
 import { NodeSquareProgram } from "@sigma/node-square";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
-import {formatTimestamp} from "../utils/util.ts";
+import {formatTimestamp, stripWww} from "../utils/util.ts";
+
+export type RawEntry = {
+  id: string;
+  wayback_date: number;
+  url_norm: string;
+  url: string;
+  links: string[];
+};
+
+const fmtWayback = (ts: number): string => {
+  const s = ts.toString();
+  if (s.length !== 14) return s;
+  const d = new Date(Date.UTC(
+    +s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8),
+    +s.slice(8, 10), +s.slice(10, 12), +s.slice(12, 14)
+  ));
+  return d.toLocaleString();
+};
 
 const isExternalNode = (url: string, domain?: string): boolean => {
   if (!domain || !url) return false;
@@ -26,6 +44,7 @@ export type TreeLink = {
 interface SigmaGraphProps {
   treeData: TreeLink;
   domain?: string;
+  data?: RawEntry[];
 }
 
 // Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
@@ -41,9 +60,10 @@ const COLORS = {
 // ────────────────────────────────────────────────────────────────────────────
 const X_GAP = 0.6;
 
-const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
+const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
+  const rawVersionMap = useRef<Map<string, RawEntry[]>>(new Map());
   const graphRef = useRef<Graph>(new Graph({ type: "directed" }));
   const rendererRef = useRef<Sigma | null>(null);
   const currentNodeRef = useRef<string | null>(null);
@@ -53,6 +73,23 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
   const nodes = usePersistentStore((state) => state.nodes);
   const baseCrawlTime = usePersistentStore((state) => state.baseCrawlTime);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Build URL → sorted-versions lookup whenever raw data changes
+  useEffect(() => {
+    const map = new Map<string, RawEntry[]>();
+    if (data) {
+      for (const entry of data) {
+        const key = stripWww(entry.url);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(entry);
+      }
+      // Sort each bucket ascending by wayback_date
+      for (const bucket of map.values()) {
+        bucket.sort((a, b) => a.wayback_date - b.wayback_date);
+      }
+    }
+    rawVersionMap.current = map;
+  }, [data]);
 
   useEffect(() => {
     if (!containerRef.current || !treeData) return;
@@ -216,31 +253,61 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     renderer.on("enterNode", ({ node }) => {
       const url = graph.getNodeAttribute(node, "url");
       const nodeData = dataMap.current.get(url);
-      if (tooltipRef.current) {
-        if (nodeData && nodeData.wayback_date) {
-            const dateStr = nodeData.wayback_date.toString();
-            let formattedDate = dateStr;
-            if (dateStr.length === 14) {
-              const d = new Date(Date.UTC(
-                +dateStr.slice(0, 4), +dateStr.slice(4, 6) - 1, +dateStr.slice(6, 8),
-                +dateStr.slice(8, 10), +dateStr.slice(10, 12), +dateStr.slice(12, 14)
-              ));
-              formattedDate = d.toLocaleString();
-            }
-            
-            tooltipRef.current.innerHTML = `
-              <div style="font-size: 12px; font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
-                ${url}
-              </div>
-              <div style="color: #334155; font-size: 12px; display: flex; align-items: center; gap: 6px;">
-                <span style="font-weight: 500;">CRAWL DATE: ${formattedDate}</span>
-              </div>
-            `;
-        } else {
-            tooltipRef.current.textContent = url;
-        }
-        tooltipRef.current.style.display = "block";
-      }
+      if (!tooltipRef.current) return;
+
+      const currentTs = nodeData?.wayback_date ?? 0;
+      const formattedCurrent = currentTs ? fmtWayback(currentTs) : null;
+
+      // Look up all versions of this URL
+      const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
+      const currentIdx = allVersions.findIndex(e => e.wayback_date === currentTs);
+
+      const olderRaw = currentIdx > 0 ? allVersions.slice(0, currentIdx) : [];
+      const newerRaw = currentIdx >= 0 ? allVersions.slice(currentIdx + 1) : [];
+
+      // Limit to 20 on each side; for older take the most-recent 20 (closest to current)
+      const older = olderRaw.slice(-20);
+      const newer = newerRaw.slice(0, 20);
+
+      const versionRowHtml = (e: RawEntry) => {
+        const d = fmtWayback(e.wayback_date);
+        return `<div style="padding:2px 0; font-size:11px; color:#64748b; white-space:nowrap;">${d}</div>`;
+      };
+
+      const currentRowHtml = formattedCurrent
+        ? `<div style="padding:3px 0; font-size:11px; font-weight:700; color:#0f172a; background:#f1f5f9; border-radius:4px; padding:3px 6px; white-space:nowrap;">${formattedCurrent} &nbsp;<span style="font-size:10px;color:#94a3b8;">(in tree)</span></div>`
+        : "";
+
+      const versionsSectionHtml = (older.length > 0 || newer.length > 0 || formattedCurrent) ? `
+        <div style="border-top:1px solid #e2e8f0; margin-top:8px; padding-top:6px;">
+          <div style="font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
+            Snapshots (${allVersions.length} total)
+          </div>
+          <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;">
+            ${older.length > 0 ? `
+              ${olderRaw.length > 20 ? `<div style="font-size:10px;color:#94a3b8;padding:2px 0;">… ${olderRaw.length - 20} older not shown</div>` : ""}
+              ${older.map(versionRowHtml).join("")}
+            ` : ""}
+            ${currentRowHtml}
+            ${newer.length > 0 ? `
+              ${newer.map(versionRowHtml).join("")}
+              ${newerRaw.length > 20 ? `<div style="font-size:10px;color:#94a3b8;padding:2px 0;">… ${newerRaw.length - 20} newer not shown</div>` : ""}
+            ` : ""}
+          </div>
+        </div>
+      ` : "";
+
+      tooltipRef.current.innerHTML = `
+        <div style="font-size:12px; font-weight:600; color:#0f172a; margin-bottom:6px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; word-break:break-all;">
+          ${url}
+        </div>
+        ${formattedCurrent ? `
+        <div style="color:#334155; font-size:12px; display:flex; align-items:center; gap:6px;">
+          <span style="font-weight:500;">CRAWL DATE: ${formattedCurrent}</span>
+        </div>` : ""}
+        ${versionsSectionHtml}
+      `;
+      tooltipRef.current.style.display = "block";
     });
 
     renderer.on("leaveNode", () => {
@@ -514,7 +581,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             borderRadius: "8px",
             fontSize: "13px",
             fontWeight: 500,
-            maxWidth: "350px",
+            maxWidth: "400px",
             wordBreak: "break-word",
             zIndex: 100,
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05)",
