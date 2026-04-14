@@ -2,8 +2,19 @@ import React, { useEffect, useRef, useCallback } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
+import { NodeSquareProgram } from "@sigma/node-square";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
 import {formatTimestamp} from "../utils/util.ts";
+
+const isExternalNode = (url: string, domain?: string): boolean => {
+  if (!domain || !url) return false;
+  try {
+    const hostname = new URL(url.startsWith("http") ? url : `http://${url}`).hostname.replace(/^www\./, "");
+    return !hostname.endsWith(domain) && hostname !== domain;
+  } catch {
+    return !url.includes(domain);
+  }
+};
 
 export type TreeLink = {
   id: string;
@@ -99,9 +110,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
         const desc = descendantCount.get(nodeUrl) || 0;
         const visitedSet = new Set(usePersistentStore.getState().nodes.map((n) => n.url));
         const isVis = visitedSet.has(nodeUrl);
+        const nodeIsExternal = graph.getNodeAttribute(nodeUrl, "isExternal");
 
-
-        graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+        if (!nodeIsExternal) {
+          graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+        }
         graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
         graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : 0.0001);
         graph.setNodeAttribute(nodeUrl, "label", linkCount > 0 ? `+${desc}` : "");
@@ -129,13 +142,16 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           const isVisited = visitedNow.has(childUrl);
           const parentVisited = visitedNow.has(nodeUrl);
           const edgeHighlighted = isVisited && parentVisited;
+          const external = isExternalNode(childUrl, domain);
           graph.addNode(childUrl, {
             x: px + X_GAP,
             y: py + yOffset,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
             borderColor: isVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
             borderSize: isVisited ? 0.3 : 0.0001,
-            color: childLinks > 0 ? COLORS.expandable : COLORS.leaf,
+            color: external ? "#FFD700" : (childLinks > 0 ? COLORS.expandable : COLORS.leaf),
+            type: external ? "square" : "circle",
+            isExternal: external,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
             url: child.url
           });
@@ -149,7 +165,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
             processNode(childUrl, depth + 1, false);
           }
         });
-        graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+        if (!graph.getNodeAttribute(nodeUrl, "isExternal")) {
+          graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+        }
         graph.setNodeAttribute(nodeUrl, "label", "");
       }
     };
@@ -160,11 +178,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const rootLinks = Array.isArray(treeData.links) ? treeData.links.length : 0;
     const rootDescendants = descendantCount.get(rootUrl) || 0;
     const rootVisited = usePersistentStore.getState().nodes.some((n) => n.url === rootUrl);
+    const rootExternal = isExternalNode(rootUrl, domain);
     graph.addNode(rootUrl, {
       x: 0,
       y: 0.5,
       size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
-      color: rootLinks > 0 ? COLORS.expandable : COLORS.leaf,
+      color: rootExternal ? "#FFD700" : (rootLinks > 0 ? COLORS.expandable : COLORS.leaf),
+      type: rootExternal ? "square" : "circle",
+      isExternal: rootExternal,
       borderColor: rootVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
       borderSize: rootVisited ? 0.3 : 0.0001,
       label: rootLinks > 0 ? `+${rootDescendants}` : "",
@@ -181,6 +202,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
     const renderer = new Sigma(graph, containerRef.current, {
       nodeProgramClasses: {
         circle: NodeBorderProgram,
+        square: NodeSquareProgram,
       },
       renderLabels: true,
       labelSize: 11,
@@ -533,6 +555,16 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain }) => {
           <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
             <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: COLORS.current, border: `1.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
             <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>You are here</span>
+          </div>
+          <div style={{ borderTop: "1px solid #E2E8F0", margin: "2px 0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+            <div style={{
+              width: 11, height: 11,
+              backgroundColor: "#FFD700",
+              border: "1.5px solid #B8860B",
+              flexShrink: 0,
+            }} />
+            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>External domain</span>
           </div>
         </div>
 
