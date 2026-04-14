@@ -29,20 +29,44 @@ const fmtWayback = (ts: number): string => {
   return d.toLocaleString();
 };
 
-/** Jaccard similarity on link sets – 1.0 = identical, 0.0 = nothing in common */
-const jaccardLinks = (a: string[], b: string[]): number | null => {
-  if (a.length === 0 && b.length === 0) return null; // no data to compare
-  const setA = new Set(a);
-  const setB = new Set(b);
-  let intersection = 0;
-  for (const link of setB) if (setA.has(link)) intersection++;
-  const union = setA.size + setB.size - intersection;
-  return union === 0 ? null : intersection / union;
+/** Strip HTML tags and collapse whitespace to get plain text */
+const extractText = (html: string): string => {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 };
+
+/** Build word-frequency map from plain text */
+const wordFreq = (text: string): Map<string, number> => {
+  const freq = new Map<string, number>();
+  for (const word of text.split(/\W+/).filter(w => w.length > 2)) {
+    freq.set(word, (freq.get(word) ?? 0) + 1);
+  }
+  return freq;
+};
+
+/** Cosine similarity between two word-frequency maps – 1.0 = identical, 0 = nothing in common */
+const cosineSimilarity = (a: Map<string, number>, b: Map<string, number>): number => {
+  let dot = 0, normA = 0, normB = 0;
+  for (const [w, v] of a) { normA += v * v; if (b.has(w)) dot += v * b.get(w)!; }
+  for (const [, v] of b) normB += v * v;
+  return normA === 0 || normB === 0 ? 0 : dot / (Math.sqrt(normA) * Math.sqrt(normB));
+};
+
+/** Build a proxy URL to fetch an archived page */
+const proxyUrl = (wayback_date: number, url: string): string =>
+  `/solrwayback/services/webProxy/${wayback_date}/${url}`;
 
 /** Map similarity 0→1 to a red–yellow–green colour */
 const similarityColor = (score: number): string => {
-  // score 0 = red, 0.5 = yellow, 1 = green
   const r = score < 0.5 ? 255 : Math.round(255 * (1 - (score - 0.5) * 2));
   const g = score > 0.5 ? 255 : Math.round(255 * score * 2);
   return `rgb(${r},${g},60)`;
@@ -101,8 +125,55 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     url: string;
     versions: RawEntry[];
     currentTs: number;
-    currentEntry: RawEntry | null;
   } | null>(null);
+  // wayback_date → cosine similarity score (null = loading, undefined = error/no data)
+  const [htmlScores, setHtmlScores] = useState<Map<number, number | null>>(new Map());
+
+  // Fetch HTML for all versions and compute cosine similarity vs. current when panel opens
+  useEffect(() => {
+    if (!versionsPanel) return;
+    const { versions, currentTs } = versionsPanel;
+    setHtmlScores(new Map()); // reset
+
+    const ac = new AbortController();
+    const { signal } = ac;
+
+    (async () => {
+      // Fetch current version's HTML first as the base
+      const currentEntry = versions.find(v => v.wayback_date === currentTs);
+      if (!currentEntry) return;
+
+      let baseFreq: Map<string, number> | null = null;
+      try {
+        const res = await fetch(proxyUrl(currentEntry.wayback_date, currentEntry.url), { signal });
+        if (res.ok) baseFreq = wordFreq(extractText(await res.text()));
+      } catch { /* aborted or network error */ }
+
+      if (!baseFreq || signal.aborted) return;
+
+      // Mark current as score=1 (identical to itself)
+      setHtmlScores(prev => new Map(prev).set(currentTs, 1));
+
+      // Fetch each other version sequentially to avoid hammering the proxy
+      for (const entry of versions) {
+        if (signal.aborted) break;
+        if (entry.wayback_date === currentTs) continue;
+        try {
+          const res = await fetch(proxyUrl(entry.wayback_date, entry.url), { signal });
+          const score = res.ok
+            ? cosineSimilarity(baseFreq, wordFreq(extractText(await res.text())))
+            : null;
+          setHtmlScores(prev => new Map(prev).set(entry.wayback_date, score));
+        } catch {
+          if (!signal.aborted) {
+            setHtmlScores(prev => new Map(prev).set(entry.wayback_date, null));
+          }
+        }
+      }
+    })();
+
+    return () => ac.abort();
+  }, [versionsPanel]);
 
   // Build URL → sorted-versions lookup whenever raw data changes
   useEffect(() => {
@@ -317,8 +388,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       const currentTs = nodeData?.wayback_date ?? 0;
       const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
       if (allVersions.length > 0) {
-        const currentEntry = allVersions.find(v => v.wayback_date === currentTs) ?? null;
-        setVersionsPanel({ url, versions: allVersions, currentTs, currentEntry });
+        setVersionsPanel({ url, versions: allVersions, currentTs });
       }
     });
 
@@ -707,17 +777,20 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                 <div style={{ marginBottom: "10px", flexShrink: 0 }}>
                   <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "6px" }}>
                     {versionsPanel.versions.length} snapshot{versionsPanel.versions.length !== 1 ? "s" : ""} total
+                    {htmlScores.size > 0 && htmlScores.size < versionsPanel.versions.length && (
+                      <span style={{ color: "#94a3b8", marginLeft: 6 }}>
+                        (loading {htmlScores.size}/{versionsPanel.versions.length}…)
+                      </span>
+                    )}
                   </div>
-                  {versionsPanel.currentEntry && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <div style={{
-                        height: 8, width: 80, borderRadius: 4,
-                        background: "linear-gradient(to right, rgb(255,60,60), rgb(255,255,60), rgb(60,255,60))",
-                        flexShrink: 0,
-                      }} />
-                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>link similarity vs. current</span>
-                    </div>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{
+                      height: 8, width: 80, borderRadius: 4,
+                      background: "linear-gradient(to right, rgb(255,60,60), rgb(255,255,60), rgb(60,255,60))",
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: "10px", color: "#94a3b8" }}>HTML similarity vs. current</span>
+                  </div>
                 </div>
               )}
 
@@ -725,9 +798,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
               <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
                 {versionsPanel?.versions.map((entry, i) => {
                   const isCurrent = entry.wayback_date === versionsPanel.currentTs;
-                  const score = (!isCurrent && versionsPanel.currentEntry)
-                    ? jaccardLinks(versionsPanel.currentEntry.links ?? [], entry.links ?? [])
-                    : null;
+                  const scoreVal = htmlScores.get(entry.wayback_date);
+                  // scoreVal undefined = not yet loaded, null = fetch failed, number = score
+                  const score = !isCurrent && scoreVal !== undefined ? scoreVal : null;
+                  const isLoading = !isCurrent && !htmlScores.has(entry.wayback_date);
                   const dotColor = score !== null ? similarityColor(score) : null;
                   const pct = score !== null ? Math.round(score * 100) : null;
                   return (
@@ -748,9 +822,15 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                         <span style={{ fontSize: "10px", background: "#002E70", color: "#fff", borderRadius: "4px", padding: "1px 5px", flexShrink: 0 }}>
                           in tree
                         </span>
+                      ) : isLoading ? (
+                        <span style={{
+                          width: 10, height: 10, borderRadius: "50%",
+                          backgroundColor: "#e2e8f0", flexShrink: 0, display: "inline-block",
+                          animation: "pulse 1.2s ease-in-out infinite",
+                        }} />
                       ) : dotColor !== null ? (
                         <span
-                          title={`${pct}% link similarity`}
+                          title={`${pct}% HTML similarity`}
                           style={{
                             width: 10, height: 10, borderRadius: "50%",
                             backgroundColor: dotColor,
@@ -759,7 +839,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                           }}
                         />
                       ) : (
-                        <span style={{ width: 10, height: 10, flexShrink: 0, display: "inline-block" }} />
+                        <span title="Could not fetch" style={{ width: 10, height: 10, flexShrink: 0, display: "inline-block", color: "#94a3b8", fontSize: 10, lineHeight: "10px" }}>?</span>
                       )}
                       <span style={{ flex: 1 }}>{fmtWayback(entry.wayback_date)}</span>
                       {pct !== null && (
@@ -769,6 +849,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                   );
                 })}
               </div>
+              <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
             </PopoverBody>
           </PopoverContent>
         </PopoverRoot>
