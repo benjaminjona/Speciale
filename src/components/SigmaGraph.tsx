@@ -1,10 +1,15 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
 import { NodeSquareProgram } from "@sigma/node-square";
+import {
+  PopoverRoot, PopoverContent, PopoverBody, PopoverCloseTrigger,
+  Flex
+} from "@chakra-ui/react";
+import { LuX } from "react-icons/lu";
 import { usePersistentStore } from "../store/usePersistentStore.ts";
-import {formatTimestamp, stripWww} from "../utils/util.ts";
+import {stripWww} from "../utils/util.ts";
 
 export type RawEntry = {
   id: string;
@@ -73,6 +78,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   const nodes = usePersistentStore((state) => state.nodes);
   const baseCrawlTime = usePersistentStore((state) => state.baseCrawlTime);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [versionsPanel, setVersionsPanel] = useState<{
+    url: string;
+    versions: RawEntry[];
+    currentTs: number;
+  } | null>(null);
 
   // Build URL → sorted-versions lookup whenever raw data changes
   useEffect(() => {
@@ -257,55 +267,22 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
 
       const currentTs = nodeData?.wayback_date ?? 0;
       const formattedCurrent = currentTs ? fmtWayback(currentTs) : null;
-
-      // Look up all versions of this URL
       const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
-      const currentIdx = allVersions.findIndex(e => e.wayback_date === currentTs);
-
-      const olderRaw = currentIdx > 0 ? allVersions.slice(0, currentIdx) : [];
-      const newerRaw = currentIdx >= 0 ? allVersions.slice(currentIdx + 1) : [];
-
-      // Limit to 20 on each side; for older take the most-recent 20 (closest to current)
-      const older = olderRaw.slice(-20);
-      const newer = newerRaw.slice(0, 20);
-
-      const versionRowHtml = (e: RawEntry) => {
-        const d = fmtWayback(e.wayback_date);
-        return `<div style="padding:2px 0; font-size:11px; color:#64748b; white-space:nowrap;">${d}</div>`;
-      };
-
-      const currentRowHtml = formattedCurrent
-        ? `<div style="padding:3px 0; font-size:11px; font-weight:700; color:#0f172a; background:#f1f5f9; border-radius:4px; padding:3px 6px; white-space:nowrap;">${formattedCurrent} &nbsp;<span style="font-size:10px;color:#94a3b8;">(in tree)</span></div>`
-        : "";
-
-      const versionsSectionHtml = (older.length > 0 || newer.length > 0 || formattedCurrent) ? `
-        <div style="border-top:1px solid #e2e8f0; margin-top:8px; padding-top:6px;">
-          <div style="font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
-            Snapshots (${allVersions.length} total)
-          </div>
-          <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;">
-            ${older.length > 0 ? `
-              ${olderRaw.length > 20 ? `<div style="font-size:10px;color:#94a3b8;padding:2px 0;">… ${olderRaw.length - 20} older not shown</div>` : ""}
-              ${older.map(versionRowHtml).join("")}
-            ` : ""}
-            ${currentRowHtml}
-            ${newer.length > 0 ? `
-              ${newer.map(versionRowHtml).join("")}
-              ${newerRaw.length > 20 ? `<div style="font-size:10px;color:#94a3b8;padding:2px 0;">… ${newerRaw.length - 20} newer not shown</div>` : ""}
-            ` : ""}
-          </div>
-        </div>
-      ` : "";
+      const otherCount = allVersions.length > 1 ? allVersions.length - 1 : 0;
 
       tooltipRef.current.innerHTML = `
         <div style="font-size:12px; font-weight:600; color:#0f172a; margin-bottom:6px; border-bottom:1px solid #e2e8f0; padding-bottom:6px; word-break:break-all;">
           ${url}
         </div>
         ${formattedCurrent ? `
-        <div style="color:#334155; font-size:12px; display:flex; align-items:center; gap:6px;">
+        <div style="color:#334155; font-size:12px; margin-bottom:5px;">
           <span style="font-weight:500;">CRAWL DATE: ${formattedCurrent}</span>
         </div>` : ""}
-        ${versionsSectionHtml}
+        ${otherCount > 0 ? `
+        <div style="font-size:11px; color:#64748b; border-top:1px solid #e2e8f0; padding-top:5px;">
+          ${otherCount} other version${otherCount !== 1 ? "s" : ""} exist${otherCount === 1 ? "s" : ""}<br/>
+          <span style="color:#94a3b8; font-style:italic;">Right-click to see all versions</span>
+        </div>` : ""}
       `;
       tooltipRef.current.style.display = "block";
     });
@@ -313,6 +290,19 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     renderer.on("leaveNode", () => {
       if (tooltipRef.current) tooltipRef.current.style.display = "none";
     });
+
+    renderer.on("rightClickNode", (e) => {
+      const url = graph.getNodeAttribute(e.node, "url");
+      const nodeData = dataMap.current.get(url);
+      const currentTs = nodeData?.wayback_date ?? 0;
+      const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
+      if (allVersions.length > 0) {
+        setVersionsPanel({ url, versions: allVersions, currentTs });
+      }
+    });
+
+    // Suppress browser context menu on the graph canvas
+    containerRef.current?.addEventListener("contextmenu", (ev) => ev.preventDefault());
 
 
     // Prevent Sigma's built-in double-click zoom
@@ -644,6 +634,94 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           <button onClick={handleZoomOut} style={btnStyle} title="Zoom out">&minus;</button>
           <button onClick={handleResetZoom} style={{ ...btnStyle, fontSize: "12px" }} title="Reset view">&#8634;</button>
         </div>
+      </div>
+
+      {/* Versions panel – opens on right-click */}
+      <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 2000 }}>
+        <PopoverRoot
+          positioning={{ placement: "top-end" }}
+          open={versionsPanel !== null}
+          onOpenChange={(e) => { if (!e.open) setVersionsPanel(null); }}
+        >
+          <span style={{ display: "none" }} />
+          <PopoverContent style={{
+            backgroundColor: "#fff",
+            color: "#002E70",
+            borderRadius: "12px",
+            padding: "20px",
+            width: "360px",
+            maxHeight: "520px",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+            border: "1px solid #e2e8f0",
+            marginBottom: "8px",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            <PopoverBody style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              {/* Header */}
+              <Flex align="center" justify="space-between" style={{ marginBottom: "12px", flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontSize: "1rem", fontWeight: 700, color: "#002E70" }}>All Snapshots</div>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", wordBreak: "break-all", marginTop: "2px" }}>
+                    {versionsPanel?.url}
+                  </div>
+                </div>
+                <PopoverCloseTrigger asChild>
+                  <button
+                    aria-label="Close"
+                    style={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: "transparent", border: "1.5px solid #002E70",
+                      color: "#002E70", cursor: "pointer", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    <LuX size={14} />
+                  </button>
+                </PopoverCloseTrigger>
+              </Flex>
+
+              {/* Count badge */}
+              {versionsPanel && (
+                <div style={{
+                  fontSize: "11px", color: "#64748b",
+                  marginBottom: "10px", flexShrink: 0,
+                }}>
+                  {versionsPanel.versions.length} snapshot{versionsPanel.versions.length !== 1 ? "s" : ""} total
+                </div>
+              )}
+
+              {/* Scrollable list */}
+              <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
+                {versionsPanel?.versions.map((entry, i) => {
+                  const isCurrent = entry.wayback_date === versionsPanel.currentTs;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: isCurrent ? 700 : 400,
+                        color: isCurrent ? "#002E70" : "#475569",
+                        backgroundColor: isCurrent ? "#EBF4FF" : "transparent",
+                        border: isCurrent ? "1.5px solid #C7D9F5" : "1px solid transparent",
+                        display: "flex", alignItems: "center", gap: "8px",
+                      }}
+                    >
+                      {isCurrent && (
+                        <span style={{ fontSize: "10px", background: "#002E70", color: "#fff", borderRadius: "4px", padding: "1px 5px", flexShrink: 0 }}>
+                          in tree
+                        </span>
+                      )}
+                      <span>{fmtWayback(entry.wayback_date)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </PopoverBody>
+          </PopoverContent>
+        </PopoverRoot>
       </div>
     </div>
   );
