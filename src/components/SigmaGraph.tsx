@@ -29,6 +29,25 @@ const fmtWayback = (ts: number): string => {
   return d.toLocaleString();
 };
 
+/** Jaccard similarity on link sets – 1.0 = identical, 0.0 = nothing in common */
+const jaccardLinks = (a: string[], b: string[]): number | null => {
+  if (a.length === 0 && b.length === 0) return null; // no data to compare
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  for (const link of setB) if (setA.has(link)) intersection++;
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? null : intersection / union;
+};
+
+/** Map similarity 0→1 to a red–yellow–green colour */
+const similarityColor = (score: number): string => {
+  // score 0 = red, 0.5 = yellow, 1 = green
+  const r = score < 0.5 ? 255 : Math.round(255 * (1 - (score - 0.5) * 2));
+  const g = score > 0.5 ? 255 : Math.round(255 * score * 2);
+  return `rgb(${r},${g},60)`;
+};
+
 const isExternalNode = (url: string, domain?: string): boolean => {
   if (!domain || !url) return false;
   try {
@@ -82,6 +101,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     url: string;
     versions: RawEntry[];
     currentTs: number;
+    currentEntry: RawEntry | null;
   } | null>(null);
 
   // Build URL → sorted-versions lookup whenever raw data changes
@@ -297,7 +317,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       const currentTs = nodeData?.wayback_date ?? 0;
       const allVersions = rawVersionMap.current.get(stripWww(url)) ?? [];
       if (allVersions.length > 0) {
-        setVersionsPanel({ url, versions: allVersions, currentTs });
+        const currentEntry = allVersions.find(v => v.wayback_date === currentTs) ?? null;
+        setVersionsPanel({ url, versions: allVersions, currentTs, currentEntry });
       }
     });
 
@@ -681,13 +702,22 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                 </PopoverCloseTrigger>
               </Flex>
 
-              {/* Count badge */}
+              {/* Count badge + legend */}
               {versionsPanel && (
-                <div style={{
-                  fontSize: "11px", color: "#64748b",
-                  marginBottom: "10px", flexShrink: 0,
-                }}>
-                  {versionsPanel.versions.length} snapshot{versionsPanel.versions.length !== 1 ? "s" : ""} total
+                <div style={{ marginBottom: "10px", flexShrink: 0 }}>
+                  <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "6px" }}>
+                    {versionsPanel.versions.length} snapshot{versionsPanel.versions.length !== 1 ? "s" : ""} total
+                  </div>
+                  {versionsPanel.currentEntry && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <div style={{
+                        height: 8, width: 80, borderRadius: 4,
+                        background: "linear-gradient(to right, rgb(255,60,60), rgb(255,255,60), rgb(60,255,60))",
+                        flexShrink: 0,
+                      }} />
+                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>link similarity vs. current</span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -695,6 +725,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
               <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
                 {versionsPanel?.versions.map((entry, i) => {
                   const isCurrent = entry.wayback_date === versionsPanel.currentTs;
+                  const score = (!isCurrent && versionsPanel.currentEntry)
+                    ? jaccardLinks(versionsPanel.currentEntry.links ?? [], entry.links ?? [])
+                    : null;
+                  const dotColor = score !== null ? similarityColor(score) : null;
+                  const pct = score !== null ? Math.round(score * 100) : null;
                   return (
                     <div
                       key={i}
@@ -709,12 +744,27 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                         display: "flex", alignItems: "center", gap: "8px",
                       }}
                     >
-                      {isCurrent && (
+                      {isCurrent ? (
                         <span style={{ fontSize: "10px", background: "#002E70", color: "#fff", borderRadius: "4px", padding: "1px 5px", flexShrink: 0 }}>
                           in tree
                         </span>
+                      ) : dotColor !== null ? (
+                        <span
+                          title={`${pct}% link similarity`}
+                          style={{
+                            width: 10, height: 10, borderRadius: "50%",
+                            backgroundColor: dotColor,
+                            flexShrink: 0, display: "inline-block",
+                            border: "1px solid rgba(0,0,0,0.15)",
+                          }}
+                        />
+                      ) : (
+                        <span style={{ width: 10, height: 10, flexShrink: 0, display: "inline-block" }} />
                       )}
-                      <span>{fmtWayback(entry.wayback_date)}</span>
+                      <span style={{ flex: 1 }}>{fmtWayback(entry.wayback_date)}</span>
+                      {pct !== null && (
+                        <span style={{ fontSize: "10px", color: "#94a3b8", flexShrink: 0 }}>{pct}%</span>
+                      )}
                     </div>
                   );
                 })}
