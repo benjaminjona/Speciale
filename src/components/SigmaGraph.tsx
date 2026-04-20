@@ -128,6 +128,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   } | null>(null);
   // wayback_date → cosine similarity score (null = loading, undefined = error/no data)
   const [htmlScores, setHtmlScores] = useState<Map<number, number | null>>(new Map());
+  const [hoveredVersionEntry, setHoveredVersionEntry] = useState<RawEntry | null>(null);
 
   // Fetch HTML for all versions and compute cosine similarity vs. current when panel opens
   useEffect(() => {
@@ -805,7 +806,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                       background: "linear-gradient(to right, rgb(255,60,60), rgb(255,255,60), rgb(60,255,60))",
                       flexShrink: 0,
                     }} />
-                    <span style={{ fontSize: "10px", color: "#94a3b8" }}>HTML similarity vs. current</span>
+                    <span style={{ fontSize: "10px", color: "#94a3b8" }}>Text similarity in page vs. current</span>
                   </div>
                 </div>
               )}
@@ -823,6 +824,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                   return (
                     <div
                       key={i}
+                      onMouseEnter={() => setHoveredVersionEntry(entry)}
+                      onMouseLeave={() => setHoveredVersionEntry(null)}
                       style={{
                         padding: "6px 10px",
                         borderRadius: "6px",
@@ -846,7 +849,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                         }} />
                       ) : dotColor !== null ? (
                         <span
-                          title={`${pct}% HTML similarity`}
+                          title={`${pct}% Text similarity`}
                           style={{
                             width: 10, height: 10, borderRadius: "50%",
                             backgroundColor: dotColor,
@@ -870,6 +873,49 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           </PopoverContent>
         </PopoverRoot>
       </div>
+
+      {/* Version thumbnail – floats to the left of the versions panel on row hover */}
+      {hoveredVersionEntry && versionsPanel && (
+        <div style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24 + 360 + 12, // popover width + gap
+          width: 300,
+          backgroundColor: "#fff",
+          borderRadius: "12px",
+          padding: "10px",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+          border: "1px solid #e2e8f0",
+          zIndex: 2001,
+          pointerEvents: "none",
+        }}>
+          <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", wordBreak: "break-all" }}>
+            {fmtWayback(hoveredVersionEntry.wayback_date)}
+          </div>
+          <div style={{
+            border: "1px solid #e2e8f0", borderRadius: "6px",
+            overflow: "hidden", width: 280, height: 175,
+            position: "relative", background: "#f8fafc",
+          }}>
+            <iframe
+              key={hoveredVersionEntry.wayback_date}
+              src={proxyUrl(hoveredVersionEntry.wayback_date, hoveredVersionEntry.url)}
+              style={{
+                width: 1024, height: 640,
+                transform: "scale(0.2734375)",
+                transformOrigin: "top left",
+                pointerEvents: "none",
+                border: "none",
+                display: "block",
+              }}
+              sandbox="allow-scripts allow-same-origin"
+              scrolling="no"
+              loading="lazy"
+              title="Version preview"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
