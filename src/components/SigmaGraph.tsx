@@ -106,7 +106,7 @@ const COLORS = {
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
 };
 // ────────────────────────────────────────────────────────────────────────────
-const X_GAP = 0.6;
+const Y_GAP = 0.6;
 
 const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -273,7 +273,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
 
           const childLinks = Array.isArray(child.links) ? child.links.length : 0;
           const totalDescendants = descendantCount.get(childUrl) || 0;
-          const yOffset = item.links.length > 1
+          const xOffset = item.links.length > 1
             ? (index / (item.links.length - 1) - 0.5) * spread
             : 0;
 
@@ -283,8 +283,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           const edgeHighlighted = isVisited && parentVisited;
           const external = isExternalNode(childUrl, domain);
           graph.addNode(childUrl, {
-            x: px + X_GAP,
-            y: py + yOffset,
+            x: px + xOffset,
+            y: py - Y_GAP,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
             borderColor: isVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
             borderSize: isVisited ? 0.3 : 0.0001,
@@ -320,7 +320,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     const rootExternal = isExternalNode(rootUrl, domain);
     graph.addNode(rootUrl, {
       x: 0,
-      y: 0.5,
+      y: 0,
       size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
       color: rootExternal ? "#FFD700" : (rootLinks > 0 ? COLORS.expandable : COLORS.leaf),
       type: rootExternal ? "square" : "circle",
@@ -348,6 +348,17 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       labelWeight: "bold",
       labelColor: { color: "#1e293b" },
       zIndex: true,
+      defaultDrawNodeLabel: (context: CanvasRenderingContext2D, data, settings) => {
+        if (!data.label) return;
+        const size = (settings.labelSize as number) ?? 11;
+        const weight = (settings.labelWeight as string) ?? "bold";
+        const font = (settings.labelFont as string) ?? "sans-serif";
+        context.font = `${weight} ${size}px ${font}`;
+        context.fillStyle = ((settings.labelColor as { color: string })?.color) ?? "#1e293b";
+        context.textAlign = "center";
+        context.textBaseline = "top";
+        context.fillText(data.label, data.x, data.y + data.size + 4);
+      },
       // Provide a fixed zooming ratio for double clicks so it does not zoom at all
       doubleClickZoomingRatio: 1,
     });
@@ -457,7 +468,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = null;
 
-        const depth = Math.round(graph.getNodeAttribute(node, "x") / X_GAP);
+        const depth = Math.round(-graph.getNodeAttribute(node, "y") / Y_GAP);
         
         // We only expand/collapse the node. We don't mark it as visited (that happens on double click).
         processNode(node, depth, true);
@@ -561,7 +572,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         const firstPrevChild = Array.isArray(prevItem?.links) ? prevItem!.links[0]?.url : null;
         const prevAlreadyExpanded = !!firstPrevChild && graph.hasNode(firstPrevChild);
         if (!prevAlreadyExpanded) {
-          const depth = Math.round(graph.getNodeAttribute(prevCurrent, "x") / X_GAP);
+          const depth = Math.round(-graph.getNodeAttribute(prevCurrent, "y") / Y_GAP);
           processNodeRef.current(prevCurrent, depth, true);
         }
       }
@@ -572,7 +583,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         const firstChildUrl = Array.isArray(item?.links) ? item!.links[0]?.url : null;
         const alreadyExpanded = !!firstChildUrl && graph.hasNode(firstChildUrl);
         if (!alreadyExpanded) {
-          const depth = Math.round(graph.getNodeAttribute(currentUrl, "x") / X_GAP);
+          const depth = Math.round(-graph.getNodeAttribute(currentUrl, "y") / Y_GAP);          
           processNodeRef.current(currentUrl, depth, true);
         }
         // Always re-apply current styling (processNode may have overridden color)
