@@ -119,7 +119,7 @@ interface SigmaGraphProps {
 // Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
 const COLORS = {
   expandable:      "#0000EE", // medium blue      – has children
-  leaf:            "#E8F2FB", // near-white blue  – no children
+  leaf:            "#7aaee8", // near-white blue  – no children
   leafBorder:      "#7aaee8", // medium blue ring – leaf node border
   current:         "#6f1078", // vivid purple     – YOU ARE HERE
   visitedBorder:   "#E23CE3", // pink            – ring on any visited node
