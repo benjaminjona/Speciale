@@ -72,6 +72,27 @@ const similarityColor = (score: number): string => {
   return `rgb(${r},${g},60)`;
 };
 
+// ── Time range helpers ─────────────────────────────────────────────────────
+const waybackToMs = (ts: number): number => {
+  const s = ts.toString().padStart(14, "0");
+  return Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8),
+                  +s.slice(8,10), +s.slice(10,12), +s.slice(12,14));
+};
+const msToDateInput = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${(d.getUTCMonth()+1).toString().padStart(2,"0")}-${d.getUTCDate().toString().padStart(2,"0")}`;
+};
+const msToWayback = (ms: number, endOfDay = false): number => {
+  const d = new Date(ms);
+  const pad = (n: number, l = 2) => n.toString().padStart(l, "0");
+  return parseInt(`${pad(d.getUTCFullYear(),4)}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}${endOfDay ? "235959" : "000000"}`);
+};
+const dateInputToMs = (str: string): number => {
+  const [y, m, dy] = str.split("-").map(Number);
+  return Date.UTC(y, m - 1, dy);
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 const isExternalNode = (url: string, domain?: string): boolean => {
   if (!domain || !url) return false;
   try {
@@ -99,11 +120,22 @@ interface SigmaGraphProps {
 const COLORS = {
   expandable:      "#0000EE", // medium blue      – has children
   leaf:            "#E8F2FB", // near-white blue  – no children
-  current:         "#6f1078", // vivid orange     – YOU ARE HERE
-  visitedBorder:   "#E23CE3", // mid navy        – ring on any visited node
+  leafBorder:      "#7aaee8", // medium blue ring – leaf node border
+  current:         "#6f1078", // vivid purple     – YOU ARE HERE
+  visitedBorder:   "#E23CE3", // pink            – ring on any visited node
   unvisitedBorder: "#C8DCF0", // muted blue-grey – hairline border on unvisited
-  edgeVisited:     "#E23CE3", // brand navy      – traversed path
+  edgeVisited:     "#E23CE3", // pink            – traversed path
   edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
+};
+// Graph canvas background colour – used to simulate per-node opacity by blending.
+const GRAPH_BG = [240, 244, 255] as const; // #F0F4FF
+/** Blend `hex` toward the canvas background at `alpha` (0 = invisible, 1 = full colour). */
+const fadedColor = (hex: string, alpha = 0.03): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c: number, i: number) => Math.round(c * alpha + GRAPH_BG[i] * (1 - alpha)).toString(16).padStart(2, "0");
+  return `#${mix(r, 0)}${mix(g, 1)}${mix(b, 2)}`;
 };
 // ────────────────────────────────────────────────────────────────────────────
 const Y_GAP = 0.6;
@@ -113,6 +145,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
   const rawVersionMap = useRef<Map<string, RawEntry[]>>(new Map());
   const graphRef = useRef<Graph>(new Graph({ type: "directed" }));
+  const timeRangeRef = useRef<[number, number]>([0, 0]);
   const rendererRef = useRef<Sigma | null>(null);
   const currentNodeRef = useRef<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -126,6 +159,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     versions: RawEntry[];
     currentTs: number;
   } | null>(null);
+  const [timeRange, setTimeRange] = useState<[number, number]>([0, 0]);
+  const [timeBounds, setTimeBounds] = useState<[number, number]>([0, 0]);
   // wayback_date → cosine similarity score (null = loading, undefined = error/no data)
   const [htmlScores, setHtmlScores] = useState<Map<number, number | null>>(new Map());
   const [hoveredVersionEntry, setHoveredVersionEntry] = useState<RawEntry | null>(null);
@@ -176,6 +211,21 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
     return () => ac.abort();
   }, [versionsPanel]);
 
+  // Keep timeRangeRef in sync so processNode (inside the treeData effect) can read it
+  useEffect(() => { timeRangeRef.current = timeRange; }, [timeRange]);
+
+  // Initialise time bounds from data
+  useEffect(() => {
+    if (!data?.length) return;
+    const timestamps = data.map(e => e.wayback_date).filter(Boolean);
+    if (!timestamps.length) return;
+    const minTs = timestamps.reduce((a, b) => Math.min(a, b));
+    const maxTs = timestamps.reduce((a, b) => Math.max(a, b));
+    if (minTs === maxTs) return;
+    setTimeBounds([minTs, maxTs]);
+    setTimeRange([minTs, maxTs]);
+  }, [data]);
+
   // Build URL → sorted-versions lookup whenever raw data changes
   useEffect(() => {
     const map = new Map<string, RawEntry[]>();
@@ -225,6 +275,18 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
 
     const maxLinks = 1;
 
+    // Returns a faded version of defaultColor if the URL falls outside the active time interval
+    const timeFilteredColor = (url: string, defaultColor: string): string => {
+      const [lo, hi] = timeRangeRef.current;
+      if (lo === 0 && hi === 0) return defaultColor;
+      const ts = dataMap.current.get(url)?.wayback_date ?? 0;
+      if (ts !== 0 && (ts < lo || ts > hi)) return fadedColor(defaultColor);
+      return defaultColor;
+    };
+    // Border colour for an unvisited node: leaf nodes get a visible ring, expandable get hairline
+    const unvisitedBorder = (hasLinks: boolean) => hasLinks ? COLORS.unvisitedBorder : COLORS.leafBorder;
+    const unvisitedBorderSize = (hasLinks: boolean) => hasLinks ? 0.0001 : 0.25;
+
     const processNode = (nodeUrl: string, depth: number, force: boolean = false) => {
       const item = dataMap.current.get(nodeUrl);
       if (!item || !Array.isArray(item.links)) return;
@@ -252,10 +314,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         const nodeIsExternal = graph.getNodeAttribute(nodeUrl, "isExternal");
 
         if (!nodeIsExternal) {
-          graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+          graph.setNodeAttribute(nodeUrl, "color", timeFilteredColor(nodeUrl, linkCount > 0 ? COLORS.expandable : COLORS.leaf));
         }
-        graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : COLORS.unvisitedBorder);
-        graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : 0.0001);
+        graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : unvisitedBorder(linkCount > 0));
+        graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : unvisitedBorderSize(linkCount > 0));
         graph.setNodeAttribute(nodeUrl, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
@@ -282,13 +344,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           const parentVisited = visitedNow.has(nodeUrl);
           const edgeHighlighted = isVisited && parentVisited;
           const external = isExternalNode(childUrl, domain);
+          const baseColor = external ? "#FFD700" : (childLinks > 0 ? COLORS.expandable : COLORS.leaf);
           graph.addNode(childUrl, {
             x: px + xOffset,
             y: py - Y_GAP,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
-            borderColor: isVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
-            borderSize: isVisited ? 0.3 : 0.0001,
-            color: external ? "#FFD700" : (childLinks > 0 ? COLORS.expandable : COLORS.leaf),
+            borderColor: isVisited ? COLORS.visitedBorder : unvisitedBorder(childLinks > 0),
+            borderSize: isVisited ? 0.3 : unvisitedBorderSize(childLinks > 0),
+            color: external ? baseColor : timeFilteredColor(childUrl, baseColor),
             type: external ? "square" : "circle",
             isExternal: external,
             label: childLinks > 0 ? `+${totalDescendants}` : "",
@@ -305,7 +368,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           }
         });
         if (!graph.getNodeAttribute(nodeUrl, "isExternal")) {
-          graph.setNodeAttribute(nodeUrl, "color", linkCount > 0 ? COLORS.expandable : COLORS.leaf);
+          graph.setNodeAttribute(nodeUrl, "color", timeFilteredColor(nodeUrl, linkCount > 0 ? COLORS.expandable : COLORS.leaf));
         }
         graph.setNodeAttribute(nodeUrl, "label", "");
       }
@@ -322,11 +385,11 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       x: 0,
       y: 0,
       size: Math.max(10, Math.min(3 + Math.sqrt(rootDescendants) * 0.8, 50)),
-      color: rootExternal ? "#FFD700" : (rootLinks > 0 ? COLORS.expandable : COLORS.leaf),
+      color: rootExternal ? "#FFD700" : timeFilteredColor(rootUrl, rootLinks > 0 ? COLORS.expandable : COLORS.leaf),
       type: rootExternal ? "square" : "circle",
       isExternal: rootExternal,
-      borderColor: rootVisited ? COLORS.visitedBorder : COLORS.unvisitedBorder,
-      borderSize: rootVisited ? 0.3 : 0.0001,
+      borderColor: rootVisited ? COLORS.visitedBorder : unvisitedBorder(rootLinks > 0),
+      borderSize: rootVisited ? 0.3 : unvisitedBorderSize(rootLinks > 0),
       label: rootLinks > 0 ? `+${rootDescendants}` : "",
       url: treeData.url
     });
@@ -605,8 +668,31 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       }
     });
 
+    // Restore every non-current node's colour, fading those outside the time interval.
+    // Single pass: compute natural colour then blend toward background if out-of-range.
+    const [minTs, maxTs] = timeRange;
+    const timeActive = !(minTs === 0 && maxTs === 0) && minTs !== maxTs;
+    graph.forEachNode((nodeUrl) => {
+      if (nodeUrl === currentNodeRef.current) return;
+      const isExternal = graph.getNodeAttribute(nodeUrl, "isExternal");
+      const item = dataMap.current.get(nodeUrl);
+      const ts = item?.wayback_date ?? 0;
+      const inRange = !timeActive || ts === 0 || (ts >= minTs && ts <= maxTs);
+      const naturalColor = isExternal ? "#FFD700" : (Array.isArray(item?.links) && item!.links.length > 0 ? COLORS.expandable : COLORS.leaf);
+      const hasLinks = !isExternal && Array.isArray(item?.links) && item!.links.length > 0;
+      const isVisitedNode = visitedUrls.has(nodeUrl);
+      graph.setNodeAttribute(nodeUrl, "color", inRange ? naturalColor : fadedColor(naturalColor));
+      if (inRange && !isVisitedNode) {
+        graph.setNodeAttribute(nodeUrl, "borderColor", hasLinks ? COLORS.unvisitedBorder : COLORS.leafBorder);
+        graph.setNodeAttribute(nodeUrl, "borderSize", hasLinks ? 0.0001 : 0.25);
+      } else if (!inRange) {
+        graph.setNodeAttribute(nodeUrl, "borderColor", fadedColor(COLORS.unvisitedBorder));
+        graph.setNodeAttribute(nodeUrl, "borderSize", 0.0001);
+      }
+    });
+
     rendererRef.current?.refresh();
-  }, [nodes]);
+  }, [nodes, timeRange]);
 
   const handleZoomIn = useCallback(() => {
     const camera = rendererRef.current?.getCamera();
@@ -711,7 +797,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         }}>
           {([
             { color: COLORS.expandable, border: COLORS.unvisitedBorder, label: "Links" },
-            { color: COLORS.leaf,       border: COLORS.unvisitedBorder, label: "No links" },
+            { color: COLORS.leaf,       border: COLORS.leafBorder,      label: "No links" },
           ] as { color: string; border: string; label: string }[]).map(({ color, border, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
               <div style={{
@@ -743,6 +829,94 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
             <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>External domain</span>
           </div>
         </div>
+
+        {/* Time Range Filter – top right */}
+        {timeBounds[0] !== 0 && (() => {
+          const minMs = waybackToMs(timeBounds[0]);
+          const maxMs = waybackToMs(timeBounds[1]);
+          const loMs  = waybackToMs(timeRange[0]);
+          const hiMs  = waybackToMs(timeRange[1]);
+          const total = maxMs - minMs || 1;
+          const leftPct  = ((loMs - minMs) / total) * 100;
+          const rightPct = ((hiMs - minMs) / total) * 100;
+          const isFiltered = loMs > minMs || hiMs < maxMs;
+          return (
+            <div style={{
+              position: "absolute", top: "10px", right: "10px",
+              backgroundColor: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(6px)",
+              border: "1px solid #C7D9F5",
+              borderRadius: "10px",
+              padding: "10px 13px 12px",
+              zIndex: 50,
+              width: "270px",
+              boxShadow: "0 2px 8px rgba(0,46,112,0.12)",
+              pointerEvents: "auto",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }}>Time Filter</span>
+                {isFiltered && (
+                  <button onClick={() => setTimeRange(timeBounds)} style={{ fontSize: "10px", color: "#3b82f6", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>Reset</button>
+                )}
+              </div>
+
+              {/* Dual-handle slider */}
+              <div style={{ position: "relative", height: "22px", marginBottom: "10px" }}>
+                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 4, background: "#e2e8f0", transform: "translateY(-50%)", borderRadius: 2 }} />
+                <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: `${leftPct}%`, width: `${rightPct - leftPct}%`, height: 4, background: "#3b82f6", borderRadius: 2 }} />
+                {/* pointer-events:none on the track; pointer-events:all on thumb only –
+                    this is the canonical trick that lets both handles be independently draggable */}
+                <input type="range" className="tr-slider tr-slider-lo"
+                  min={minMs} max={maxMs} step={86400000} value={loMs}
+                  onChange={e => {
+                    const v = Math.min(+e.target.value, hiMs - 86400000);
+                    setTimeRange([msToWayback(v, false), timeRange[1]]);
+                  }}
+                  style={{ position: "absolute", width: "100%", WebkitAppearance: "none", appearance: "none", background: "transparent", outline: "none", height: "100%", margin: 0, padding: 0, pointerEvents: "none", zIndex: 2 }}
+                />
+                <input type="range" className="tr-slider tr-slider-hi"
+                  min={minMs} max={maxMs} step={86400000} value={hiMs}
+                  onChange={e => {
+                    const v = Math.max(+e.target.value, loMs + 86400000);
+                    setTimeRange([timeRange[0], msToWayback(v, true)]);
+                  }}
+                  style={{ position: "absolute", width: "100%", WebkitAppearance: "none", appearance: "none", background: "transparent", outline: "none", height: "100%", margin: 0, padding: 0, pointerEvents: "none", zIndex: 2 }}
+                />
+              </div>
+
+              {/* Date inputs */}
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <input type="date"
+                  value={msToDateInput(loMs)}
+                  min={msToDateInput(minMs)} max={msToDateInput(hiMs)}
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    const ms = dateInputToMs(e.target.value);
+                    if (ms >= minMs && ms <= hiMs) setTimeRange([msToWayback(ms, false), timeRange[1]]);
+                  }}
+                  style={{ flex: 1, fontSize: "11px", padding: "3px 5px", border: "1px solid #C7D9F5", borderRadius: "5px", color: "#334155", outline: "none" }}
+                />
+                <span style={{ fontSize: "11px", color: "#94a3b8", flexShrink: 0 }}>–</span>
+                <input type="date"
+                  value={msToDateInput(hiMs)}
+                  min={msToDateInput(loMs)} max={msToDateInput(maxMs)}
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    const ms = dateInputToMs(e.target.value);
+                    if (ms >= loMs && ms <= maxMs) setTimeRange([timeRange[0], msToWayback(ms, true)]);
+                  }}
+                  style={{ flex: 1, fontSize: "11px", padding: "3px 5px", border: "1px solid #C7D9F5", borderRadius: "5px", color: "#334155", outline: "none" }}
+                />
+              </div>
+              <style>{`
+                .tr-slider { pointer-events: none; }
+                .tr-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%; background:#3b82f6; border:2.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer; pointer-events:all; }
+                .tr-slider::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#3b82f6; border:2.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer; pointer-events:all; border-box:border-box; }
+                .tr-slider:focus { outline: none; }
+              `}</style>
+            </div>
+          );
+        })()}
 
         {/* Zoom controls - bottom right */}
         <div style={{
@@ -832,19 +1006,24 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
                   const isLoading = !isCurrent && !htmlScores.has(entry.wayback_date);
                   const dotColor = score !== null ? similarityColor(score) : null;
                   const pct = score !== null ? Math.round(score * 100) : null;
+                  const [minTs, maxTs] = timeRange;
+                  const timeActive = !(minTs === 0 && maxTs === 0);
+                  const outOfRange = timeActive && (entry.wayback_date < minTs || entry.wayback_date > maxTs);
                   return (
                     <div
                       key={i}
                       onMouseEnter={() => setHoveredVersionEntry(entry)}
                       onMouseLeave={() => setHoveredVersionEntry(null)}
+                      title={outOfRange ? "Outside selected time interval" : undefined}
                       style={{
                         padding: "6px 10px",
                         borderRadius: "6px",
                         fontSize: "12px",
                         fontWeight: isCurrent ? 700 : 400,
-                        color: isCurrent ? "#002E70" : "#475569",
-                        backgroundColor: isCurrent ? "#EBF4FF" : "transparent",
-                        border: isCurrent ? "1.5px solid #C7D9F5" : "1px solid transparent",
+                        color: outOfRange ? "#b0b8c4" : (isCurrent ? "#002E70" : "#475569"),
+                        backgroundColor: isCurrent && !outOfRange ? "#EBF4FF" : "transparent",
+                        border: isCurrent && !outOfRange ? "1.5px solid #C7D9F5" : "1px solid transparent",
+                        opacity: outOfRange ? 0.45 : 1,
                         display: "flex", alignItems: "center", gap: "8px",
                       }}
                     >
