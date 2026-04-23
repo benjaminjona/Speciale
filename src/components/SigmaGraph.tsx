@@ -114,6 +114,7 @@ interface SigmaGraphProps {
   treeData: TreeLink;
   domain?: string;
   data?: RawEntry[];
+  onClear?: () => void;
 }
 
 // Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
@@ -143,7 +144,7 @@ const disabledColor = (naturalColor: string): string =>
 // ────────────────────────────────────────────────────────────────────────────
 const Y_GAP = 0.6;
 
-const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
+const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
   const rawVersionMap = useRef<Map<string, RawEntry[]>>(new Map());
@@ -728,10 +729,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
   };
 
   return (
-    <div style={{height:"100%", paddingBottom: "50px"}}>
+    <div style={{height:"100%"}}>
       {/* Domain header bar */}
       <div style={{
-        padding: "6px 14px", marginBottom: "6px", borderRadius: "8px",
+        padding: "6px 14px", 
         backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0",
         display: "flex", gap: "8px", flexWrap: "wrap",
       }}>
@@ -759,6 +760,28 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{new Date(baseCrawlTime).toLocaleString()}</span>
         </div>
       )}
+        {onClear && (
+          <button
+            onClick={onClear}
+            title="Clear all saved data and reload"
+            style={{
+              marginLeft: "auto",
+              display: "flex", alignItems: "center", gap: "5px",
+              padding: "5px 12px", fontSize: "0.78rem", fontWeight: 600,
+              color: "#b91c1c", backgroundColor: "#fff1f2",
+              border: "1px solid #fca5a5", borderRadius: "7px",
+              cursor: "pointer", whiteSpace: "nowrap",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#fee2e2";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#f87171";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#fff1f2";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "#fca5a5";
+            }}
+          >&#8634; Clear &amp; Reset</button>
+        )}
         </div>
 
       <div style={{ height: "100%", position: "relative" }}>
@@ -768,8 +791,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
             width: "100%",
             height: "100%",
             backgroundColor: "#F0F4FF",
-            borderRadius: "12px",
-            border: "1px solid #C7D9F5",
             overflow: "hidden",
           }}
         />
@@ -931,7 +952,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
 
         {/* Zoom controls - bottom right */}
         <div style={{
-          position: "absolute", bottom: "14px", right: "14px",
+          position: "absolute", bottom: "64px", right: "14px",
           display: "flex", flexDirection: "column", gap: "4px",
         }}>
           <button onClick={handleZoomIn} style={btnStyle} title="Zoom in">+</button>
