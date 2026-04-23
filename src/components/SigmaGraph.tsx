@@ -137,6 +137,9 @@ const fadedColor = (hex: string, alpha = 0.03): string => {
   const mix = (c: number, i: number) => Math.round(c * alpha + GRAPH_BG[i] * (1 - alpha)).toString(16).padStart(2, "0");
   return `#${mix(r, 0)}${mix(g, 1)}${mix(b, 2)}`;
 };
+/** Leaf nodes get a slightly higher alpha so they're barely perceptible when disabled. */
+const disabledColor = (naturalColor: string): string =>
+  fadedColor(naturalColor, naturalColor === COLORS.leaf ? 0.09 : 0.03);
 // ────────────────────────────────────────────────────────────────────────────
 const Y_GAP = 0.6;
 
@@ -280,8 +283,12 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       const [lo, hi] = timeRangeRef.current;
       if (lo === 0 && hi === 0) return defaultColor;
       const ts = dataMap.current.get(url)?.wayback_date ?? 0;
-      if (ts !== 0 && (ts < lo || ts > hi)) return fadedColor(defaultColor);
+      if (ts !== 0 && (ts < lo || ts > hi)) return disabledColor(defaultColor);
       return defaultColor;
+    };
+    const isInTimeRange = (ts: number): boolean => {
+      const [lo, hi] = timeRangeRef.current;
+      return (lo === 0 && hi === 0) || ts === 0 || (ts >= lo && ts <= hi);
     };
     // Border colour for an unvisited node: leaf nodes get a visible ring, expandable get hairline
     const unvisitedBorder = (hasLinks: boolean) => hasLinks ? COLORS.unvisitedBorder : COLORS.leafBorder;
@@ -316,8 +323,10 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
         if (!nodeIsExternal) {
           graph.setNodeAttribute(nodeUrl, "color", timeFilteredColor(nodeUrl, linkCount > 0 ? COLORS.expandable : COLORS.leaf));
         }
-        graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : unvisitedBorder(linkCount > 0));
-        graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : unvisitedBorderSize(linkCount > 0));
+        const nodeTs = dataMap.current.get(nodeUrl)?.wayback_date ?? 0;
+        const nodeInRange = isInTimeRange(nodeTs);
+        graph.setNodeAttribute(nodeUrl, "borderColor", isVis ? COLORS.visitedBorder : (nodeInRange ? unvisitedBorder(linkCount > 0) : fadedColor(COLORS.unvisitedBorder)));
+        graph.setNodeAttribute(nodeUrl, "borderSize", isVis ? 0.3 : (nodeInRange ? unvisitedBorderSize(linkCount > 0) : 0.0001));
         graph.setNodeAttribute(nodeUrl, "label", linkCount > 0 ? `+${desc}` : "");
         return;
       }
@@ -345,12 +354,13 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           const edgeHighlighted = isVisited && parentVisited;
           const external = isExternalNode(childUrl, domain);
           const baseColor = external ? "#FFD700" : (childLinks > 0 ? COLORS.expandable : COLORS.leaf);
+          const childInRange = isInTimeRange(child.wayback_date ?? 0);
           graph.addNode(childUrl, {
             x: px + xOffset,
             y: py - Y_GAP,
             size: Math.max(10, Math.min(3 + Math.sqrt(totalDescendants) * 0.8, 50)),
-            borderColor: isVisited ? COLORS.visitedBorder : unvisitedBorder(childLinks > 0),
-            borderSize: isVisited ? 0.3 : unvisitedBorderSize(childLinks > 0),
+            borderColor: isVisited ? COLORS.visitedBorder : (childInRange ? unvisitedBorder(childLinks > 0) : fadedColor(COLORS.unvisitedBorder)),
+            borderSize: isVisited ? 0.3 : (childInRange ? unvisitedBorderSize(childLinks > 0) : 0.0001),
             color: external ? baseColor : timeFilteredColor(childUrl, baseColor),
             type: external ? "square" : "circle",
             isExternal: external,
@@ -545,6 +555,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
           graph.setNodeAttribute(node, "borderSize", 0.3);
           graph.setNodeAttribute(node, "zIndex", 10);
         }
+        rendererRef.current?.refresh();
       }, 250);
     });
 
@@ -681,7 +692,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data }) => {
       const naturalColor = isExternal ? "#FFD700" : (Array.isArray(item?.links) && item!.links.length > 0 ? COLORS.expandable : COLORS.leaf);
       const hasLinks = !isExternal && Array.isArray(item?.links) && item!.links.length > 0;
       const isVisitedNode = visitedUrls.has(nodeUrl);
-      graph.setNodeAttribute(nodeUrl, "color", inRange ? naturalColor : fadedColor(naturalColor));
+      graph.setNodeAttribute(nodeUrl, "color", inRange ? naturalColor : disabledColor(naturalColor));
       if (inRange && !isVisitedNode) {
         graph.setNodeAttribute(nodeUrl, "borderColor", hasLinks ? COLORS.unvisitedBorder : COLORS.leafBorder);
         graph.setNodeAttribute(nodeUrl, "borderSize", hasLinks ? 0.0001 : 0.25);
