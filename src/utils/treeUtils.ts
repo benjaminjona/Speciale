@@ -25,6 +25,7 @@ export const buildTreeWithClosestMatch = (
     const candidates = data.filter(item =>
       stripWww(item.url) === normalizedUrl || stripWww(item.url_norm) === normalizedUrl
     );
+    console.log(candidates);
     if (candidates.length === 0) return undefined;
     return candidates.reduce((closest, item) => {
       return Math.abs(item.wayback_date - wayback_date) <= Math.abs(closest.wayback_date - wayback_date)
@@ -71,7 +72,7 @@ export const buildTreeWithClosestMatch = (
         const newNode: TreeLink = {
           id: closestChild.id,
           url: childUrl,
-          wayback_date: closestChild.id ? closestChild.wayback_date : requestedTimestamp,
+          wayback_date: closestChild.wayback_date,
           links: []
         };
         treeNode.links.push(newNode);
