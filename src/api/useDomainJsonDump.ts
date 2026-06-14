@@ -1,13 +1,11 @@
-import { JsonDataLink } from "@/pages/OverviewPage.tsx";
+import { DomainEntry } from "../types";
 import { useQuery } from "@tanstack/react-query";
 
-const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
+const fetchDomainJsonDump = async (href: string): Promise<DomainEntry[]> => {
   const normalizedHref = href.startsWith("http") ? href : `http://${href}`;
   const urlObj = new URL(normalizedHref);
   const domain = urlObj.hostname.replace(/^www\./, '');
 
-  // CHANGE THIS LINE: Remove http://localhost:8080
-  // Use the path that matches your proxy config
   const baseUrl = "/solrwayback/services/export/fields";
 
   const params = new URLSearchParams();
@@ -19,16 +17,10 @@ const fetchDomainJsonDump = async (href: string): Promise<JsonDataLink[]> => {
   params.append("format", "json");
   params.append("gzip", "false");
 
-  const searchUrl = `${baseUrl}?${params.toString()}`;
-
-  // Now the browser sees: GET http://localhost:5173/solrwayback/services/...
-  // Vite then forwards it to 8080, and no CORS error occurs!
-  const response = await fetch(searchUrl);
-
+  const response = await fetch(`${baseUrl}?${params.toString()}`);
   if (!response.ok) {
     throw new Error(`Fetch failed: ${response.status}`);
   }
-
   return response.json();
 };
 

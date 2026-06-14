@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App'
 import PlaybackPage from './pages/PlaybackPage'
-import {Provider} from "./src/components/ui/provider.tsx";
+import { Provider } from "./src/components/ui/provider";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {OverviewPage} from "./pages/OverviewPage.tsx";
+import { OverviewPage } from "./pages/OverviewPage";
 
 const queryClient = new QueryClient();
 

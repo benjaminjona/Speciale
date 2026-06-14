@@ -3,151 +3,26 @@ import Graph from "graphology";
 import Sigma from "sigma";
 import { NodeBorderProgram } from "@sigma/node-border";
 import { NodeSquareProgram } from "@sigma/node-square";
-import {
-  PopoverRoot, PopoverContent, PopoverBody, PopoverCloseTrigger,
-  Flex
-} from "@chakra-ui/react";
-import { LuX } from "react-icons/lu";
-import { usePersistentStore } from "../store/usePersistentStore.ts";
-import {stripWww} from "../utils/util.ts";
-
-export type RawEntry = {
-  id: string;
-  wayback_date: number;
-  url_norm: string;
-  url: string;
-  links: string[];
-};
-
-const fmtWayback = (ts: number): string => {
-  const s = ts.toString();
-  if (s.length !== 14) return s;
-  const d = new Date(Date.UTC(
-    +s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8),
-    +s.slice(8, 10), +s.slice(10, 12), +s.slice(12, 14)
-  ));
-  return d.toLocaleString();
-};
-
-/** Strip HTML tags and collapse whitespace to get plain text */
-const extractText = (html: string): string => {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-};
-
-/** Build word-frequency map from plain text */
-const wordFreq = (text: string): Map<string, number> => {
-  const freq = new Map<string, number>();
-  for (const word of text.split(/\W+/).filter(w => w.length > 2)) {
-    freq.set(word, (freq.get(word) ?? 0) + 1);
-  }
-  return freq;
-};
-
-/** Cosine similarity between two word-frequency maps – 1.0 = identical, 0 = nothing in common */
-const cosineSimilarity = (a: Map<string, number>, b: Map<string, number>): number => {
-  let dot = 0, normA = 0, normB = 0;
-  for (const [w, v] of a) { normA += v * v; if (b.has(w)) dot += v * b.get(w)!; }
-  for (const [, v] of b) normB += v * v;
-  return normA === 0 || normB === 0 ? 0 : dot / (Math.sqrt(normA) * Math.sqrt(normB));
-};
-
-/** Build a proxy URL to fetch an archived page */
-const proxyUrl = (wayback_date: number, url: string): string =>
-  `/solrwayback/services/webProxy/${wayback_date}/${url}`;
-
-/** Map similarity 0→1 to a red–yellow–green colour */
-const similarityColor = (score: number): string => {
-  const r = score < 0.5 ? 255 : Math.round(255 * (1 - (score - 0.5) * 2));
-  const g = score > 0.5 ? 255 : Math.round(255 * score * 2);
-  return `rgb(${r},${g},60)`;
-};
-
-// ── Time range helpers ─────────────────────────────────────────────────────
-const waybackToMs = (ts: number): number => {
-  const s = ts.toString().padStart(14, "0");
-  return Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8),
-                  +s.slice(8,10), +s.slice(10,12), +s.slice(12,14));
-};
-const msToDateInput = (ms: number): string => {
-  const d = new Date(ms);
-  return `${d.getUTCFullYear()}-${(d.getUTCMonth()+1).toString().padStart(2,"0")}-${d.getUTCDate().toString().padStart(2,"0")}`;
-};
-const msToWayback = (ms: number, endOfDay = false): number => {
-  const d = new Date(ms);
-  const pad = (n: number, l = 2) => n.toString().padStart(l, "0");
-  return parseInt(`${pad(d.getUTCFullYear(),4)}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}${endOfDay ? "235959" : "000000"}`);
-};
-const dateInputToMs = (str: string): number => {
-  const [y, m, dy] = str.split("-").map(Number);
-  return Date.UTC(y, m - 1, dy);
-};
-// ────────────────────────────────────────────────────────────────────────────
-
-const isExternalNode = (url: string, domain?: string): boolean => {
-  if (!domain || !url) return false;
-  try {
-    const hostname = new URL(url.startsWith("http") ? url : `http://${url}`).hostname.replace(/^www\./, "");
-    return !hostname.endsWith(domain) && hostname !== domain;
-  } catch {
-    return !url.includes(domain);
-  }
-};
-
-export type TreeLink = {
-  id: string;
-  url: string;
-  wayback_date: number;
-  links: TreeLink[] | any;
-};
+import { usePersistentStore } from "../store/usePersistentStore";
+import { stripWww, proxyUrl, isExternalNode, fmtWayback } from "../utils/util";
+import { DomainEntry, TreeLink } from "../types";
+import { COLORS, fadedColor, disabledColor, unvisitedBorder, unvisitedBorderSize } from "./graphColors";
+import VersionsPanel, { VersionsPanelData } from "./VersionsPanel";
+import TimeFilter from "./TimeFilter";
+import GraphLegend from "./GraphLegend";
 
 interface SigmaGraphProps {
   treeData: TreeLink;
   domain?: string;
-  data?: RawEntry[];
+  data?: DomainEntry[];
   onClear?: () => void;
 }
-
-// Brand navy #002E70.  Unvisited nodes are light; visited nodes fill with navy.
-const COLORS = {
-  expandable:      "#0000EE", // medium blue      – has children
-  leaf:            "#7aaee8", // near-white blue  – no children
-  leafBorder:      "#7aaee8", // medium blue ring – leaf node border
-  current:         "#6f1078", // vivid purple     – YOU ARE HERE
-  visitedBorder:   "#E23CE3", // pink            – ring on any visited node
-  unvisitedBorder: "#C8DCF0", // muted blue-grey – hairline border on unvisited
-  edgeVisited:     "#E23CE3", // pink            – traversed path
-  edgeUnvisited:   "#C8DCF0", // pale blue       – unvisited edge
-};
-// Graph canvas background colour – used to simulate per-node opacity by blending.
-const GRAPH_BG = [240, 244, 255] as const; // #F0F4FF
-/** Blend `hex` toward the canvas background at `alpha` (0 = invisible, 1 = full colour). */
-const fadedColor = (hex: string, alpha = 0.03): string => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const mix = (c: number, i: number) => Math.round(c * alpha + GRAPH_BG[i] * (1 - alpha)).toString(16).padStart(2, "0");
-  return `#${mix(r, 0)}${mix(g, 1)}${mix(b, 2)}`;
-};
-/** Leaf nodes get a slightly higher alpha so they're barely perceptible when disabled. */
-const disabledColor = (naturalColor: string): string =>
-  fadedColor(naturalColor, naturalColor === COLORS.leaf ? 0.09 : 0.03);
-// ────────────────────────────────────────────────────────────────────────────
 const Y_GAP = 0.6;
 
 const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dataMap = useRef<Map<string, TreeLink>>(new Map());
-  const rawVersionMap = useRef<Map<string, RawEntry[]>>(new Map());
+  const rawVersionMap = useRef<Map<string, DomainEntry[]>>(new Map());
   const graphRef = useRef<Graph>(new Graph({ type: "directed" }));
   const timeRangeRef = useRef<[number, number]>([0, 0]);
   const rendererRef = useRef<Sigma | null>(null);
@@ -158,62 +33,9 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
   const nodes = usePersistentStore((state) => state.nodes);
   const baseCrawlTime = usePersistentStore((state) => state.baseCrawlTime);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [versionsPanel, setVersionsPanel] = useState<{
-    url: string;
-    versions: RawEntry[];
-    currentTs: number;
-  } | null>(null);
+  const [versionsPanel, setVersionsPanel] = useState<VersionsPanelData | null>(null);
   const [timeRange, setTimeRange] = useState<[number, number]>([0, 0]);
   const [timeBounds, setTimeBounds] = useState<[number, number]>([0, 0]);
-  // wayback_date → cosine similarity score (null = loading, undefined = error/no data)
-  const [htmlScores, setHtmlScores] = useState<Map<number, number | null>>(new Map());
-  const [hoveredVersionEntry, setHoveredVersionEntry] = useState<RawEntry | null>(null);
-
-  // Fetch HTML for all versions and compute cosine similarity vs. current when panel opens
-  useEffect(() => {
-    if (!versionsPanel) return;
-    const { versions, currentTs } = versionsPanel;
-    setHtmlScores(new Map()); // reset
-
-    const ac = new AbortController();
-    const { signal } = ac;
-
-    (async () => {
-      // Fetch current version's HTML first as the base
-      const currentEntry = versions.find(v => v.wayback_date === currentTs);
-      if (!currentEntry) return;
-
-      let baseFreq: Map<string, number> | null = null;
-      try {
-        const res = await fetch(proxyUrl(currentEntry.wayback_date, currentEntry.url), { signal });
-        if (res.ok) baseFreq = wordFreq(extractText(await res.text()));
-      } catch { /* aborted or network error */ }
-
-      if (!baseFreq || signal.aborted) return;
-
-      // Mark current as score=1 (identical to itself)
-      setHtmlScores(prev => new Map(prev).set(currentTs, 1));
-
-      // Fetch each other version sequentially to avoid hammering the proxy
-      for (const entry of versions) {
-        if (signal.aborted) break;
-        if (entry.wayback_date === currentTs) continue;
-        try {
-          const res = await fetch(proxyUrl(entry.wayback_date, entry.url), { signal });
-          const score = res.ok
-            ? cosineSimilarity(baseFreq, wordFreq(extractText(await res.text())))
-            : null;
-          setHtmlScores(prev => new Map(prev).set(entry.wayback_date, score));
-        } catch {
-          if (!signal.aborted) {
-            setHtmlScores(prev => new Map(prev).set(entry.wayback_date, null));
-          }
-        }
-      }
-    })();
-
-    return () => ac.abort();
-  }, [versionsPanel]);
 
   // Keep timeRangeRef in sync so processNode (inside the treeData effect) can read it
   useEffect(() => { timeRangeRef.current = timeRange; }, [timeRange]);
@@ -232,7 +54,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
 
   // Build URL → sorted-versions lookup whenever raw data changes
   useEffect(() => {
-    const map = new Map<string, RawEntry[]>();
+    const map = new Map<string, DomainEntry[]>();
     if (data) {
       for (const entry of data) {
         const key = stripWww(entry.url);
@@ -291,9 +113,6 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
       const [lo, hi] = timeRangeRef.current;
       return (lo === 0 && hi === 0) || ts === 0 || (ts >= lo && ts <= hi);
     };
-    // Border colour for an unvisited node: leaf nodes get a visible ring, expandable get hairline
-    const unvisitedBorder = (hasLinks: boolean) => hasLinks ? COLORS.unvisitedBorder : COLORS.leafBorder;
-    const unvisitedBorderSize = (hasLinks: boolean) => hasLinks ? 0.0001 : 0.25;
 
     const processNode = (nodeUrl: string, depth: number, force: boolean = false) => {
       const item = dataMap.current.get(nodeUrl);
@@ -737,25 +556,14 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
         display: "flex", gap: "8px", flexWrap: "wrap",
       }}>
       {domain && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: "8px",
-
-        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Domain</span>
           <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{domain}</span>
         </div>
       )}
-        <div
-          style={{
-            display: "flex", alignItems: "center", gap: "8px",
-            borderLeft: "1px solid #cbd5e1",
-          }}
-        >
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", borderLeft: "1px solid #cbd5e1" }} />
       {baseCrawlTime && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: "8px",
-        }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "12px", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>Reference date</span>
           <span style={{ fontSize: "14px", fontWeight: 600, color: "#1e293b" }}>{new Date(baseCrawlTime).toLocaleString()}</span>
         </div>
@@ -787,12 +595,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
       <div style={{ height: "100%", position: "relative" }}>
         <div
           ref={containerRef}
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundColor: "#F0F4FF",
-            overflow: "hidden",
-          }}
+          style={{ width: "100%", height: "100%", backgroundColor: "#F0F4FF", overflow: "hidden" }}
         />
 
         {/* URL tooltip on hover */}
@@ -815,140 +618,8 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
           }}
         />
 
-        {/* Legend – top-left */}
-        <div style={{
-          position: "absolute", top: "10px", left: "10px",
-          backgroundColor: "rgba(255,255,255,0.93)",
-          backdropFilter: "blur(6px)",
-          border: "1px solid #C7D9F5",
-          borderRadius: "8px",
-          padding: "8px 10px",
-          display: "flex", flexDirection: "column", gap: "5px",
-          pointerEvents: "none",
-          boxShadow: "0 1px 6px rgba(0,46,112,0.10)",
-        }}>
-          {([
-            { color: COLORS.expandable, border: COLORS.unvisitedBorder, label: "Links" },
-            { color: COLORS.leaf,       border: COLORS.leafBorder,      label: "No links" },
-          ] as { color: string; border: string; label: string }[]).map(({ color, border, label }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-              <div style={{
-                width: 11, height: 11, borderRadius: "50%",
-                backgroundColor: color,
-                border: `1.5px solid ${border}`,
-                flexShrink: 0,
-              }} />
-              <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>{label}</span>
-            </div>
-          ))}
-          <div style={{ borderTop: "1px solid #E2E8F0", margin: "2px 0" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: COLORS.expandable, border: `2.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
-            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>Visited</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div style={{ width: 11, height: 11, borderRadius: "50%", backgroundColor: COLORS.current, border: `1.5px solid ${COLORS.visitedBorder}`, flexShrink: 0 }} />
-            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>You are here</span>
-          </div>
-          <div style={{ borderTop: "1px solid #E2E8F0", margin: "2px 0" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div style={{
-              width: 11, height: 11,
-              backgroundColor: "#FFD700",
-              border: "1.5px solid #B8860B",
-              flexShrink: 0,
-            }} />
-            <span style={{ fontSize: "11px", color: "#475569", whiteSpace: "nowrap" }}>External domain</span>
-          </div>
-        </div>
-
-        {/* Time Range Filter – top right */}
-        {timeBounds[0] !== 0 && (() => {
-          const minMs = waybackToMs(timeBounds[0]);
-          const maxMs = waybackToMs(timeBounds[1]);
-          const loMs  = waybackToMs(timeRange[0]);
-          const hiMs  = waybackToMs(timeRange[1]);
-          const total = maxMs - minMs || 1;
-          const leftPct  = ((loMs - minMs) / total) * 100;
-          const rightPct = ((hiMs - minMs) / total) * 100;
-          const isFiltered = loMs > minMs || hiMs < maxMs;
-          return (
-            <div style={{
-              position: "absolute", top: "10px", right: "10px",
-              backgroundColor: "rgba(255,255,255,0.96)",
-              backdropFilter: "blur(6px)",
-              border: "1px solid #C7D9F5",
-              borderRadius: "10px",
-              padding: "10px 13px 12px",
-              zIndex: 50,
-              width: "270px",
-              boxShadow: "0 2px 8px rgba(0,46,112,0.12)",
-              pointerEvents: "auto",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 600 }}>Time Filter</span>
-                {isFiltered && (
-                  <button onClick={() => setTimeRange(timeBounds)} style={{ fontSize: "10px", color: "#3b82f6", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>Reset</button>
-                )}
-              </div>
-
-              {/* Dual-handle slider */}
-              <div style={{ position: "relative", height: "22px", marginBottom: "10px" }}>
-                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 4, background: "#e2e8f0", transform: "translateY(-50%)", borderRadius: 2 }} />
-                <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: `${leftPct}%`, width: `${rightPct - leftPct}%`, height: 4, background: "#3b82f6", borderRadius: 2 }} />
-                {/* pointer-events:none on the track; pointer-events:all on thumb only –
-                    this is the canonical trick that lets both handles be independently draggable */}
-                <input type="range" className="tr-slider tr-slider-lo"
-                  min={minMs} max={maxMs} step={86400000} value={loMs}
-                  onChange={e => {
-                    const v = Math.min(+e.target.value, hiMs - 86400000);
-                    setTimeRange([msToWayback(v, false), timeRange[1]]);
-                  }}
-                  style={{ position: "absolute", width: "100%", WebkitAppearance: "none", appearance: "none", background: "transparent", outline: "none", height: "100%", margin: 0, padding: 0, pointerEvents: "none", zIndex: 2 }}
-                />
-                <input type="range" className="tr-slider tr-slider-hi"
-                  min={minMs} max={maxMs} step={86400000} value={hiMs}
-                  onChange={e => {
-                    const v = Math.max(+e.target.value, loMs + 86400000);
-                    setTimeRange([timeRange[0], msToWayback(v, true)]);
-                  }}
-                  style={{ position: "absolute", width: "100%", WebkitAppearance: "none", appearance: "none", background: "transparent", outline: "none", height: "100%", margin: 0, padding: 0, pointerEvents: "none", zIndex: 2 }}
-                />
-              </div>
-
-              {/* Date inputs */}
-              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                <input type="date"
-                  value={msToDateInput(loMs)}
-                  min={msToDateInput(minMs)} max={msToDateInput(hiMs)}
-                  onChange={e => {
-                    if (!e.target.value) return;
-                    const ms = dateInputToMs(e.target.value);
-                    if (ms >= minMs && ms <= hiMs) setTimeRange([msToWayback(ms, false), timeRange[1]]);
-                  }}
-                  style={{ flex: 1, fontSize: "11px", padding: "3px 5px", border: "1px solid #C7D9F5", borderRadius: "5px", color: "#334155", outline: "none" }}
-                />
-                <span style={{ fontSize: "11px", color: "#94a3b8", flexShrink: 0 }}>–</span>
-                <input type="date"
-                  value={msToDateInput(hiMs)}
-                  min={msToDateInput(loMs)} max={msToDateInput(maxMs)}
-                  onChange={e => {
-                    if (!e.target.value) return;
-                    const ms = dateInputToMs(e.target.value);
-                    if (ms >= loMs && ms <= maxMs) setTimeRange([timeRange[0], msToWayback(ms, true)]);
-                  }}
-                  style={{ flex: 1, fontSize: "11px", padding: "3px 5px", border: "1px solid #C7D9F5", borderRadius: "5px", color: "#334155", outline: "none" }}
-                />
-              </div>
-              <style>{`
-                .tr-slider { pointer-events: none; }
-                .tr-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%; background:#3b82f6; border:2.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer; pointer-events:all; }
-                .tr-slider::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#3b82f6; border:2.5px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); cursor:pointer; pointer-events:all; border-box:border-box; }
-                .tr-slider:focus { outline: none; }
-              `}</style>
-            </div>
-          );
-        })()}
+        <GraphLegend />
+        <TimeFilter timeBounds={timeBounds} timeRange={timeRange} setTimeRange={setTimeRange} />
 
         {/* Zoom controls - bottom right */}
         <div style={{
@@ -961,183 +632,7 @@ const SigmaGraph: React.FC<SigmaGraphProps> = ({ treeData, domain, data, onClear
         </div>
       </div>
 
-      {/* Versions panel – opens on right-click */}
-      <div style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 2000 }}>
-        <PopoverRoot
-          positioning={{ placement: "top-end" }}
-          open={versionsPanel !== null}
-          onOpenChange={(e) => { if (!e.open) setVersionsPanel(null); }}
-        >
-          <span style={{ display: "none" }} />
-          <PopoverContent style={{
-            backgroundColor: "#fff",
-            color: "#002E70",
-            borderRadius: "12px",
-            padding: "20px",
-            width: "360px",
-            maxHeight: "520px",
-            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
-            border: "1px solid #e2e8f0",
-            marginBottom: "8px",
-            display: "flex",
-            flexDirection: "column",
-          }}>
-            <PopoverBody style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              {/* Header */}
-              <Flex align="center" justify="space-between" style={{ marginBottom: "12px", flexShrink: 0 }}>
-                <div>
-                  <div style={{ fontSize: "1rem", fontWeight: 700, color: "#002E70" }}>All Snapshots</div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", wordBreak: "break-all", marginTop: "2px" }}>
-                    {versionsPanel?.url}
-                  </div>
-                </div>
-                <PopoverCloseTrigger asChild>
-                  <button
-                    aria-label="Close"
-                    style={{
-                      width: 32, height: 32, borderRadius: "50%",
-                      background: "transparent", border: "1.5px solid #002E70",
-                      color: "#002E70", cursor: "pointer", flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}
-                  >
-                    <LuX size={14} />
-                  </button>
-                </PopoverCloseTrigger>
-              </Flex>
-
-              {/* Count badge + legend */}
-              {versionsPanel && (
-                <div style={{ marginBottom: "10px", flexShrink: 0 }}>
-                  <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "6px" }}>
-                    {versionsPanel.versions.length} snapshot{versionsPanel.versions.length !== 1 ? "s" : ""} total
-                    {htmlScores.size > 0 && htmlScores.size < versionsPanel.versions.length && (
-                      <span style={{ color: "#94a3b8", marginLeft: 6 }}>
-                        (loading {htmlScores.size}/{versionsPanel.versions.length}…)
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <div style={{
-                      height: 8, width: 80, borderRadius: 4,
-                      background: "linear-gradient(to right, rgb(255,60,60), rgb(255,255,60), rgb(60,255,60))",
-                      flexShrink: 0,
-                    }} />
-                    <span style={{ fontSize: "10px", color: "#94a3b8" }}>Text similarity in page vs. current</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Scrollable list */}
-              <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "2px" }}>
-                {versionsPanel?.versions.map((entry, i) => {
-                  const isCurrent = entry.wayback_date === versionsPanel.currentTs;
-                  const scoreVal = htmlScores.get(entry.wayback_date);
-                  // scoreVal undefined = not yet loaded, null = fetch failed, number = score
-                  const score = !isCurrent && scoreVal !== undefined ? scoreVal : null;
-                  const isLoading = !isCurrent && !htmlScores.has(entry.wayback_date);
-                  const dotColor = score !== null ? similarityColor(score) : null;
-                  const pct = score !== null ? Math.round(score * 100) : null;
-                  const [minTs, maxTs] = timeRange;
-                  const timeActive = !(minTs === 0 && maxTs === 0);
-                  const outOfRange = timeActive && (entry.wayback_date < minTs || entry.wayback_date > maxTs);
-                  return (
-                    <div
-                      key={i}
-                      onMouseEnter={() => setHoveredVersionEntry(entry)}
-                      onMouseLeave={() => setHoveredVersionEntry(null)}
-                      title={outOfRange ? "Outside selected time interval" : undefined}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        fontSize: "12px",
-                        fontWeight: isCurrent ? 700 : 400,
-                        color: outOfRange ? "#b0b8c4" : (isCurrent ? "#002E70" : "#475569"),
-                        backgroundColor: isCurrent && !outOfRange ? "#EBF4FF" : "transparent",
-                        border: isCurrent && !outOfRange ? "1.5px solid #C7D9F5" : "1px solid transparent",
-                        opacity: outOfRange ? 0.45 : 1,
-                        display: "flex", alignItems: "center", gap: "8px",
-                      }}
-                    >
-                      {isCurrent ? (
-                        <span style={{ fontSize: "10px", background: "#002E70", color: "#fff", borderRadius: "4px", padding: "1px 5px", flexShrink: 0 }}>
-                          in tree
-                        </span>
-                      ) : isLoading ? (
-                        <span style={{
-                          width: 10, height: 10, borderRadius: "50%",
-                          backgroundColor: "#e2e8f0", flexShrink: 0, display: "inline-block",
-                          animation: "pulse 1.2s ease-in-out infinite",
-                        }} />
-                      ) : dotColor !== null ? (
-                        <span
-                          title={`${pct}% Text similarity`}
-                          style={{
-                            width: 10, height: 10, borderRadius: "50%",
-                            backgroundColor: dotColor,
-                            flexShrink: 0, display: "inline-block",
-                            border: "1px solid rgba(0,0,0,0.15)",
-                          }}
-                        />
-                      ) : (
-                        <span title="Could not fetch" style={{ width: 10, height: 10, flexShrink: 0, display: "inline-block", color: "#94a3b8", fontSize: 10, lineHeight: "10px" }}>?</span>
-                      )}
-                      <span style={{ flex: 1 }}>{fmtWayback(entry.wayback_date)}</span>
-                      {pct !== null && (
-                        <span style={{ fontSize: "10px", color: "#94a3b8", flexShrink: 0 }}>{pct}%</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
-            </PopoverBody>
-          </PopoverContent>
-        </PopoverRoot>
-      </div>
-
-      {/* Version thumbnail – floats to the left of the versions panel on row hover */}
-      {hoveredVersionEntry && versionsPanel && (
-        <div style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24 + 360 + 12, // popover width + gap
-          width: 300,
-          backgroundColor: "#fff",
-          borderRadius: "12px",
-          padding: "10px",
-          boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
-          border: "1px solid #e2e8f0",
-          zIndex: 2001,
-          pointerEvents: "none",
-        }}>
-          <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", wordBreak: "break-all" }}>
-            {fmtWayback(hoveredVersionEntry.wayback_date)}
-          </div>
-          <div style={{
-            border: "1px solid #e2e8f0", borderRadius: "6px",
-            overflow: "hidden", width: 280, height: 175,
-            position: "relative", background: "#f8fafc",
-          }}>
-            <iframe
-              key={hoveredVersionEntry.wayback_date}
-              src={proxyUrl(hoveredVersionEntry.wayback_date, hoveredVersionEntry.url)}
-              style={{
-                width: 1024, height: 640,
-                transform: "scale(0.2734375)",
-                transformOrigin: "top left",
-                pointerEvents: "none",
-                border: "none",
-                display: "block",
-              }}
-              sandbox="allow-scripts allow-same-origin"
-              scrolling="no"
-              loading="lazy"
-              title="Version preview"
-            />
-          </div>
-        </div>
-      )}
+      <VersionsPanel panel={versionsPanel} timeRange={timeRange} onClose={() => setVersionsPanel(null)} />
     </div>
   );
 };

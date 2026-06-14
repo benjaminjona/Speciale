@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import PlaybackViewer from "../PlaybackViewer";
 import { toaster, Toaster } from "../src/components/ui/toaster";
-import {epochToWaybackNumber, getSearchUrl, getTimeJumpToastDescription} from "../utils/util.ts";
-import { usePersistentStore } from "../store/usePersistentStore.ts";
+import { epochToWaybackNumber, getSearchUrl, getTimeJumpToastDescription } from "../utils/util";
+import { usePersistentStore } from "../store/usePersistentStore";
 
 interface PlaybackData {
   html: string;
@@ -112,7 +112,6 @@ const PlaybackPage = () => {
       const latest = state.nodes[state.nodes.length - 1];
       const baseCrawl = state.baseCrawlTime;
       const newDate = epochToWaybackNumber(baseCrawl)
-      // const baseCrawl = state.baseCrawlTime
       if (!latest.url) return;
       const playbackUrl = `/solrwayback/services/web/${newDate}/${latest.url}`;
       getPlaybackFunction(playbackUrl, true);
@@ -123,20 +122,15 @@ const PlaybackPage = () => {
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <Toaster />
-      {/*{loading && <div style={{ padding: "20px" }}>Loading playback...</div>}*/}
       {error && <div style={{ padding: "20px", color: "red" }}>{error}</div>}
       {playbackData ? (
         <div style={{ flex: 1 }}>
-          {/*<div style={{ padding: "4px 10px", fontSize: "12px", color: "#666" }}>*/}
-          {/*  {playbackData.baseUrl}*/}
-          {/*</div>*/}
           <PlaybackViewer
             getPlaybackFunction={getPlaybackFunction}
             htmlContent={playbackData.html}
             baseUrl={playbackData.baseUrl}
             pageResources={divergentPageResources}
           />
-
         </div>
       ) : (
         !loading && (

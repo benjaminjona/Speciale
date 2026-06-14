@@ -1,15 +1,8 @@
-import {JsonDataLink} from "../pages/OverviewPage.tsx";
-import {stripWww} from "./util.ts";
-
-export type TreeLink = {
-  id: string;
-  url: string;
-  wayback_date: number;
-  links: TreeLink[] | any;
-};
+import { DomainEntry, TreeLink } from "../types";
+import { stripWww } from "./util";
 
 export const buildTreeWithClosestMatch = (
-  data: JsonDataLink[],
+  data: DomainEntry[],
   rootUrl: string,
   requestedTimestamp: number,
   domain: string
